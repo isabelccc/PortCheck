@@ -7,7 +7,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const FUND_CORGX = "f0000001-0000-4000-8000-000000000001";
 const FUND_TANCH = "f0000002-0000-4000-8000-000000000002";
@@ -44,6 +44,95 @@ const WF_STEP_FINAL = "f1140005-0000-4000-8000-000000000005";
 const WF_AUDIT_1 = "f1150001-0000-4000-8000-000000000001";
 const WF_AUDIT_2 = "f1150002-0000-4000-8000-000000000002";
 
+const BULK_FUND_START = 3;
+const BULK_FUND_END = 100;
+
+function companyUuid(i: number): string {
+  return `cccc${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
+}
+
+function bulkFundUuid(i: number): string {
+  return `dddd${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
+}
+
+function bulkDocUuid(i: number): string {
+  return `eeee${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
+}
+
+function bulkVersionUuid(i: number): string {
+  return `b2ee${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
+}
+
+const ADJECTIVES = [
+  "Northbridge",
+  "Harbor",
+  "Summit",
+  "Pinnacle",
+  "Riverstone",
+  "Crescent",
+  "Meridian",
+  "Highland",
+  "Granite",
+  "Silverline",
+  "Ironwood",
+  "Bluewater",
+  "Oakfield",
+  "Clearview",
+  "Beacon",
+  "Sterling",
+  "Apex",
+  "Founders",
+  "Latitude",
+  "Cartesian",
+  "Velocity",
+  "Horizon",
+  "Compass",
+  "Vertex",
+];
+
+const NOUNS = [
+  "Capital Partners",
+  "Advisors",
+  "Asset Management",
+  "Trust Company",
+  "Investment Group",
+  "Wealth Management",
+  "Fund Services",
+  "Holdings",
+  "Management LLC",
+  "Strategic Advisors",
+  "Financial Group",
+  "Partners",
+  "Advisory LLC",
+  "Capital LLC",
+  "Investments",
+  "Global Advisors",
+];
+
+const FUND_FLAVORS = [
+  "Equity ETF",
+  "Core Bond Fund",
+  "Global Growth Fund",
+  "Dividend Fund",
+  "Sustainable ETF",
+  "Tech Sector Fund",
+  "Income Fund",
+  "Balanced Fund",
+  "International ETF",
+  "Short Duration Bond",
+  "Small-Cap Growth",
+  "Target-Date 2045",
+];
+
+const DOC_KINDS = [
+  { slug: "risk-factors", title: "Risk factors" },
+  { slug: "fees-and-expenses", title: "Fees and expenses" },
+  { slug: "summary-prospectus", title: "Summary prospectus" },
+  { slug: "sai", title: "Statement of additional information" },
+  { slug: "portfolio-holdings", title: "Portfolio holdings disclosure" },
+  { slug: "use-of-ai", title: "Use of artificial intelligence" },
+];
+
 async function main() {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   // seed.ts lives in packages/db/src — monorepo root is three levels up
@@ -53,6 +142,7 @@ async function main() {
   const mod = await import("./index.js");
   const {
     db,
+    companies,
     documentVersions,
     documents,
     funds,
@@ -65,18 +155,87 @@ async function main() {
   } = mod;
 
   try {
+  const companyRows = Array.from({ length: 100 }, (_, j) => {
+    const i = j + 1;
+    const name = `${ADJECTIVES[i % ADJECTIVES.length]} ${NOUNS[(i * 3) % NOUNS.length]}`;
+    return {
+      id: companyUuid(i),
+      name,
+      slug: `sponsor-${i}`,
+    };
+  });
+
+  await db
+    .insert(companies)
+    .values(companyRows)
+    .onConflictDoNothing({ target: companies.id });
+
   await db.insert(funds).values([
     {
       id: FUND_CORGX,
+      companyId: companyUuid(1),
       name: "Corgi Innovation ETF",
       ticker: "CORGX",
     },
     {
       id: FUND_TANCH,
+      companyId: companyUuid(2),
       name: "Tech Anchor Fund",
       ticker: "TANCH",
     },
   ]).onConflictDoNothing();
+
+  await db
+    .update(funds)
+    .set({ companyId: companyUuid(1) })
+    .where(eq(funds.id, FUND_CORGX));
+  await db
+    .update(funds)
+    .set({ companyId: companyUuid(2) })
+    .where(eq(funds.id, FUND_TANCH));
+
+  const bulkFunds = [];
+  for (let i = BULK_FUND_START; i <= BULK_FUND_END; i++) {
+    bulkFunds.push({
+      id: bulkFundUuid(i),
+      companyId: companyUuid(i),
+      name: `${ADJECTIVES[(i * 5) % ADJECTIVES.length]} ${FUND_FLAVORS[i % FUND_FLAVORS.length]}`,
+      ticker: `D${i.toString(16).toUpperCase().padStart(4, "0")}`,
+    });
+  }
+  await db.insert(funds).values(bulkFunds).onConflictDoNothing();
+
+  const bulkDocuments = [];
+  const bulkVersions = [];
+  for (let i = BULK_FUND_START; i <= BULK_FUND_END; i++) {
+    const kind = DOC_KINDS[i % DOC_KINDS.length]!;
+    const slug = `${kind.slug}-fund-${i}`;
+    bulkDocuments.push({
+      id: bulkDocUuid(i),
+      fundId: bulkFundUuid(i),
+      slug,
+      title: `${kind.title} (Fund ${i})`,
+    });
+    const statuses = ["draft", "in_review", "approved"] as const;
+    bulkVersions.push({
+      id: bulkVersionUuid(i),
+      documentId: bulkDocUuid(i),
+      version: `2025.${String((i % 12) + 1).padStart(2, "0")}.1`,
+      status: statuses[i % 3],
+      parentVersionId: null,
+      content: [
+        `Synthetic disclosure for fund index ${i} (${kind.title}).`,
+        "",
+        "This text is demo-only seed data for UI and workflow experiments.",
+        "It is not legal, tax, or investment advice.",
+      ].join("\n"),
+    });
+  }
+
+  await db.insert(documents).values(bulkDocuments).onConflictDoNothing({
+    target: [documents.fundId, documents.slug],
+  });
+  await db.insert(documentVersions).values(bulkVersions).onConflictDoNothing();
 
   await db.insert(documents).values([
     {
@@ -353,6 +512,7 @@ async function main() {
   ]).onConflictDoNothing();
 
   const [
+    companyCount,
     fundCount,
     docCount,
     verCount,
@@ -363,6 +523,7 @@ async function main() {
     stepCount,
     auditCount,
   ] = await Promise.all([
+    db.select({ n: sql<number>`count(*)::int` }).from(companies),
     db.select({ n: sql<number>`count(*)::int` }).from(funds),
     db.select({ n: sql<number>`count(*)::int` }).from(documents),
     db.select({ n: sql<number>`count(*)::int` }).from(documentVersions),
@@ -376,7 +537,7 @@ async function main() {
 
   console.log("Seed complete (idempotent inserts skipped conflicts).");
   console.log(
-    `Counts — funds: ${fundCount[0]?.n}, documents: ${docCount[0]?.n}, document_versions: ${verCount[0]?.n}`,
+    `Counts — companies: ${companyCount[0]?.n}, funds: ${fundCount[0]?.n}, documents: ${docCount[0]?.n}, document_versions: ${verCount[0]?.n}`,
   );
   console.log(
     `Workflow — templates: ${tmplCount[0]?.n}, nodes: ${nodeCount[0]?.n}, edges: ${edgeCount[0]?.n}, runs: ${runCount[0]?.n}, step_executions: ${stepCount[0]?.n}, audit_events: ${auditCount[0]?.n}`,

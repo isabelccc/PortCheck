@@ -1,11 +1,20 @@
 import Link from "next/link";
-import { db, funds } from "@repo/db";
+import { db, companies, funds } from "@repo/db";
+import { eq } from "drizzle-orm";
 import styles from "../disclosure.module.css";
 
 export const dynamic = "force-dynamic";
 
 export default async function FundsPage() {
-  const rows = await db.select().from(funds);
+  const rows = await db
+    .select({
+      id: funds.id,
+      name: funds.name,
+      ticker: funds.ticker,
+      companyName: companies.name,
+    })
+    .from(funds)
+    .leftJoin(companies, eq(funds.companyId, companies.id));
 
   return (
     <div className={styles.shell}>
@@ -36,7 +45,12 @@ export default async function FundsPage() {
                     <span className={styles.ticker}>{f.ticker}</span>
                   ) : null}
                 </div>
-                <div className={styles.cardMeta}>{f.id}</div>
+                {f.companyName ? (
+                  <p className={styles.subtitle} style={{ marginTop: "0.35rem" }}>
+                    {f.companyName}
+                  </p>
+                ) : null}
+               
               </Link>
             ))}
           </div>

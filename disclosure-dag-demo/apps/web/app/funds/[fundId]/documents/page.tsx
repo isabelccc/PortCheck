@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db, documents, funds } from "@repo/db";
+import { db, companies, documents, funds } from "@repo/db";
 import { eq } from "drizzle-orm";
 import styles from "../../../disclosure.module.css";
 
@@ -13,11 +13,17 @@ type PageProps = {
 export default async function FundDocumentsPage({ params }: PageProps) {
   const { fundId } = await params;
 
-  const [fund] = await db
-    .select()
+  const [row] = await db
+    .select({
+      fund: funds,
+      companyName: companies.name,
+    })
     .from(funds)
+    .leftJoin(companies, eq(funds.companyId, companies.id))
     .where(eq(funds.id, fundId))
     .limit(1);
+
+  const fund = row?.fund;
 
   if (!fund) {
     notFound();
@@ -42,6 +48,11 @@ export default async function FundDocumentsPage({ params }: PageProps) {
               {fund.ticker}
             </span>
           ) : null}
+          {row.companyName ? (
+            <>
+              <span className={styles.subtitleSep}>·</span> {row.companyName}
+            </>
+          ) : null}
         </p>
         {rows.length === 0 ? (
           <div className={styles.empty}>No documents for this fund yet.</div>
@@ -57,7 +68,7 @@ export default async function FundDocumentsPage({ params }: PageProps) {
                   <span className={styles.slug}>{d.slug}</span>
                 </div>
                 <div className={styles.cardTitle}>{d.title}</div>
-                <div className={styles.cardMeta}>{d.id}</div>
+              
               </Link>
             ))}
           </div>

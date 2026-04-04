@@ -7,8 +7,19 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+/** Sponsor / legal entity behind one or more funds (demo data). */
+export const companies = pgTable("companies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const funds = pgTable("funds", {
   id: uuid("id").primaryKey().defaultRandom(),
+  companyId: uuid("company_id").references(() => companies.id),
   name: text("name").notNull(),
   ticker: text("ticker"),
   createdAt: timestamp("created_at", { withTimezone: true })
