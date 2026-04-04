@@ -39,6 +39,18 @@ export default function RootLayout({
             <a href="/documents" className={styles.topBarLink}>
               Documents
             </a>
+            <a href="/runs" className={styles.topBarLink}>
+              Runs
+            </a>
+            <a href="/audit" className={styles.topBarLink}>
+              Audit
+            </a>
+            <a href="/reviews" className={styles.topBarLink}>
+              Reviews
+            </a>
+            <a href="/compliance" className={styles.topBarLink}>
+              Compliance
+            </a>
           </nav>
           <div className={styles.topBarRight}>
             <span className={styles.topBarHint}>localhost:3000</span>

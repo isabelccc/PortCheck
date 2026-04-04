@@ -21,8 +21,11 @@ export default function Home() {
           <Link className={styles.primary} href="/funds">
             View funds &amp; documents
           </Link>
-          <Link className={styles.secondary} href="/documents">
-            Documents hub
+          <Link className={styles.secondary} href="/reviews">
+            Review queue
+          </Link>
+          <Link className={styles.secondary} href="/compliance">
+            Compliance hub
           </Link>
         </div>
 
@@ -32,12 +35,28 @@ export default function Home() {
             <code>document_versions</code> with optional parent lineage.
           </li>
           <li>
-            <strong>Stack</strong> — Next.js App Router, Turborepo, Drizzle ORM,
-            shared <code>@repo/db</code> workspace package.
+            <strong>Workflow</strong> — React Flow DAG from seeded templates;
+            shared rules engine enforces upstream completion before downstream
+            moves; optional <strong>auto-run</strong> advances waves on the server;
+            actions write <code>step_executions</code> + append-only{" "}
+            <code>audit_events</code>.
           </li>
           <li>
-            <strong>Next</strong> — DAG-shaped review workflow, append-only
-            audit trail, and richer QA views.
+            <strong>Filing QA &amp; EDGAR-style export</strong> — per-version{" "}
+            <Link href="/reviews">workspace</Link> with redlines vs parent,
+            QA checklists, demo Inline XBRL fact validation, and downloadable HTML
+            stub (not EDGAR Live).
+          </li>
+          <li>
+            <strong>Compliance workflows</strong> — seeded{" "}
+            <Link href="/compliance">policies</Link>, cookie-based roles
+            (viewer / reviewer / admin), evidence on checklist + approval
+            completion, <Link href="/reviews">review queue</Link>, append-only
+            audit.
+          </li>
+          <li>
+            <strong>Stack</strong> — Next.js App Router, Turborepo, Drizzle ORM,
+            shared <code>@repo/db</code> workspace package.
           </li>
         </ul>
 
@@ -79,6 +98,10 @@ export default function Home() {
         <Link href="/funds">Funds</Link>
         <span className={styles.footerSep}>·</span>
         <Link href="/documents">Documents</Link>
+        <span className={styles.footerSep}>·</span>
+        <Link href="/runs">Runs</Link>
+        <span className={styles.footerSep}>·</span>
+        <Link href="/audit">Audit</Link>
         <span className={styles.footerSep}>·</span>
         <span className={styles.footerMeta}>disclosure-dag-demo</span>
       </footer>

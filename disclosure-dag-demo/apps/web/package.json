@@ -13,17 +13,20 @@
   "dependencies": {
     "@repo/db": "*",
     "@repo/ui": "*",
+    "@xyflow/react": "^12.10.2",
+    "diff": "^8.0.4",
     "next": "16.2.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
-    "dotenv": "^16.4.7",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "dotenv": "^16.4.7",
     "eslint": "^9.39.1",
     "typescript": "5.9.2"
   }

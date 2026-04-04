@@ -53,6 +53,22 @@ const WF_STEP_FINAL = "f1140005-0000-4000-8000-000000000005";
 const WF_AUDIT_1 = "f1150001-0000-4000-8000-000000000001";
 const WF_AUDIT_2 = "f1150002-0000-4000-8000-000000000002";
 
+const POLICY_CC_1 = "f1160001-0000-4000-8000-000000000001";
+const POLICY_EV_1 = "f1160002-0000-4000-8000-000000000002";
+const POLICY_RQ_1 = "f1160003-0000-4000-8000-000000000003";
+const POLICY_AC_1 = "f1160004-0000-4000-8000-000000000004";
+
+const CHK_V2_QA1 = "f1170001-0000-4000-8000-000000000001";
+const CHK_V2_QA2 = "f1170002-0000-4000-8000-000000000002";
+const CHK_V2_IX1 = "f1170003-0000-4000-8000-000000000003";
+const CHK_V2_ED1 = "f1170004-0000-4000-8000-000000000004";
+const CHK_V2_SC1 = "f1170005-0000-4000-8000-000000000005";
+const CHK_V1_QA1 = "f1170011-0000-4000-8000-000000000011";
+
+const IXB_V2_1 = "f1180001-0000-4000-8000-000000000001";
+const IXB_V2_2 = "f1180002-0000-4000-8000-000000000002";
+const IXB_V2_3 = "f1180003-0000-4000-8000-000000000003";
+
 const BULK_FUND_START = 3;
 const BULK_FUND_END = 100;
 
@@ -167,6 +183,9 @@ async function main() {
     workflowRuns,
     stepExecutions,
     auditEvents,
+    compliancePolicies,
+    ixbrlFactDrafts,
+    versionChecklistItems,
   } = mod;
 
   try {
@@ -533,6 +552,152 @@ async function main() {
       payload: { runId: WF_RUN_RISK_V2, status: "running" },
     },
   ]).onConflictDoNothing();
+
+  await db
+    .insert(compliancePolicies)
+    .values([
+      {
+        id: POLICY_CC_1,
+        code: "CC-17A",
+        title: "Change control for registration statements",
+        summary:
+          "Material changes to disclosure documents require documented review, approval, and an immutable audit trail before external filing.",
+        controlCategory: "change_control",
+      },
+      {
+        id: POLICY_EV_1,
+        code: "EV-SEC",
+        title: "Evidence of supervisory review",
+        summary:
+          "Approvals must record actor, timestamp, and rationale sufficient to reconstruct who certified what and why.",
+        controlCategory: "evidence",
+      },
+      {
+        id: POLICY_RQ_1,
+        code: "RQ-WIP",
+        title: "Review queue for in-flight versions",
+        summary:
+          "Versions in review remain in a controlled queue until workflow completion or explicit escalation.",
+        controlCategory: "review_queue",
+      },
+      {
+        id: POLICY_AC_1,
+        code: "AC-RBAC",
+        title: "Role-based access (demo)",
+        summary:
+          "Production systems map entitlements to roles; this demo uses a cookie role for viewer / reviewer / admin.",
+        controlCategory: "access_control",
+    },
+  ])
+    .onConflictDoNothing({ target: compliancePolicies.id });
+
+  await db.insert(versionChecklistItems).values([
+    {
+      id: CHK_V2_QA1,
+      documentVersionId: VER_RISK_V2,
+      sortOrder: 1,
+      code: "qa_cross_refs",
+      label: "Cross-references and defined terms consistent with prior risk factors section",
+      category: "qa_content",
+      required: true,
+      completedAt: null,
+      completedBy: null,
+      evidenceNote: null,
+    },
+    {
+      id: CHK_V2_QA2,
+      documentVersionId: VER_RISK_V2,
+      sortOrder: 2,
+      code: "qa_ai_disclosure",
+      label: "AI / model use disclosure matches adviser practices described elsewhere",
+      category: "qa_content",
+      required: true,
+      completedAt: null,
+      completedBy: null,
+      evidenceNote: null,
+    },
+    {
+      id: CHK_V2_IX1,
+      documentVersionId: VER_RISK_V2,
+      sortOrder: 10,
+      code: "ixbrl_validate",
+      label: "Inline XBRL draft facts validated (demo validator — not EDGAR Live)",
+      category: "ixbrl",
+      required: true,
+      completedAt: null,
+      completedBy: null,
+      evidenceNote: null,
+    },
+    {
+      id: CHK_V2_ED1,
+      documentVersionId: VER_RISK_V2,
+      sortOrder: 20,
+      code: "edgar_html_shell",
+      label: "EDGAR HTML export generated with exhibit metadata (demo package)",
+      category: "edgar_pack",
+      required: false,
+      completedAt: null,
+      completedBy: null,
+      evidenceNote: null,
+    },
+    {
+      id: CHK_V2_SC1,
+      documentVersionId: VER_RISK_V2,
+      sortOrder: 30,
+      code: "sec_control_signoff",
+      label: "Supervisory review checklist acknowledged for this version",
+      category: "sec_control",
+      required: true,
+      completedAt: null,
+      completedBy: null,
+      evidenceNote: null,
+    },
+    {
+      id: CHK_V1_QA1,
+      documentVersionId: VER_RISK_V1,
+      sortOrder: 1,
+      code: "qa_baseline",
+      label: "Initial risk factors draft reviewed for material omissions",
+      category: "qa_content",
+      required: true,
+      completedAt: new Date(),
+      completedBy: "seed@demo.local",
+      evidenceNote: "Seeded as satisfied for baseline v1.",
+    },
+  ]).onConflictDoNothing({ target: versionChecklistItems.id });
+
+  await db.insert(ixbrlFactDrafts).values([
+    {
+      id: IXB_V2_1,
+      documentVersionId: VER_RISK_V2,
+      conceptQname: "dei:EntityRegistrantName",
+      contextRef: "c-1",
+      factValue: "Corgi Capital Advisors, LLC",
+      unitRef: null,
+      validatedOk: false,
+      validationMessage: null,
+    },
+    {
+      id: IXB_V2_2,
+      documentVersionId: VER_RISK_V2,
+      conceptQname: "dei:TradingSymbol",
+      contextRef: "c-1",
+      factValue: "CORGX",
+      unitRef: null,
+      validatedOk: false,
+      validationMessage: null,
+    },
+    {
+      id: IXB_V2_3,
+      documentVersionId: VER_RISK_V2,
+      conceptQname: "dei:invalidBecauseLocalNameMustStartUpperCase",
+      contextRef: "c-1",
+      factValue: "Demo fact with invalid concept QName",
+      unitRef: null,
+      validatedOk: false,
+      validationMessage: null,
+    },
+  ]).onConflictDoNothing({ target: ixbrlFactDrafts.id });
 
   const [
     companyCount,

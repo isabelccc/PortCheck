@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db, documentVersions, documents, funds } from "@repo/db";
+import {
+  db,
+  documentVersions,
+  documents,
+  funds,
+  workflowRuns,
+} from "@repo/db";
 import { asc, eq, sql } from "drizzle-orm";
 import {
   DocumentPagination,
@@ -63,6 +69,22 @@ export default async function DocumentDetailPage({
     .from(funds)
     .where(eq(funds.id, doc.fundId))
     .limit(1);
+
+  const runsForDoc = await db
+    .select({
+      runId: workflowRuns.id,
+      versionId: documentVersions.id,
+    })
+    .from(workflowRuns)
+    .innerJoin(
+      documentVersions,
+      eq(workflowRuns.documentVersionId, documentVersions.id),
+    )
+    .where(eq(documentVersions.documentId, documentId));
+
+  const runByVersionId = new Map(
+    runsForDoc.map((r) => [r.versionId, r.runId]),
+  );
 
   const [countRow] = await db
     .select({ n: sql<number>`count(*)::int` })
@@ -145,6 +167,32 @@ export default async function DocumentDetailPage({
                       Parent version: {v.parentVersionId}
                     </div>
                   ) : null}
+                  <div className={styles.versionWorkflowLinks}>
+                    <Link
+                      href={`/documents/${documentId}/versions/${v.id}`}
+                      className={styles.inlineLink}
+                    >
+                      Filing QA workspace
+                    </Link>
+                    {runByVersionId.has(v.id) ? (
+                      <>
+                        <span className={styles.subtitleSep}> · </span>
+                        <Link
+                          href={`/runs/${runByVersionId.get(v.id)}`}
+                          className={styles.inlineLink}
+                        >
+                          Workflow run
+                        </Link>
+                        <span className={styles.subtitleSep}> · </span>
+                        <Link
+                          href={`/audit?documentVersionId=${encodeURIComponent(v.id)}`}
+                          className={styles.inlineLink}
+                        >
+                          Audit
+                        </Link>
+                      </>
+                    ) : null}
+                  </div>
                   <pre className={styles.contentBlock}>{v.content}</pre>
                 </article>
               ))}
