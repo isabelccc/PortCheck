@@ -1078,11 +1078,16 @@
   color: var(--pilot-muted);
 }
 
+/* Matches .sectionLabel: pilot-surface frame, pilot-muted uppercase headers */
 .reviewQueueTable {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--radio-p3-size);
-  margin-top: 1rem;
+  margin-top: 0;
+  border: 1px solid var(--pilot-line);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--pilot-surface);
 }
 
 .reviewQueueTable th,
@@ -1090,11 +1095,35 @@
   border: 1px solid var(--pilot-line);
   padding: 0.55rem 0.65rem;
   text-align: left;
+  vertical-align: top;
 }
 
 .reviewQueueTable th {
-  background: #f5f5f5;
+  font-size: 0.6875rem;
+  line-height: 1.2;
   font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+  background: var(--pilot-surface);
+}
+
+.reviewQueueTable tbody td {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--pilot-text);
+  letter-spacing: -0.01em;
+}
+
+.reviewQueueTable th:nth-child(1),
+.reviewQueueTable td:nth-child(1) {
+  min-width: 14rem;
+  width: 30%;
+}
+
+.reviewQueueTable th:nth-child(3),
+.reviewQueueTable td:nth-child(3) {
+  min-width: 8rem;
+  white-space: nowrap;
 }
 
 .workflowStepList {

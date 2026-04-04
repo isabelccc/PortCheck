@@ -12,6 +12,12 @@ loadEnv({ path: path.join(__dirname, ".env.local") });
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@repo/db"],
+  experimental: {
+    serverActions: {
+      /** Large filing bodies can exceed the default Server Actions body limit. */
+      bodySizeLimit: "8mb",
+    },
+  },
   // Avoid picking a parent folder that has another lockfile (e.g. ~/pnpm-lock.yaml).
   turbopack: {
     root: monorepoRoot,

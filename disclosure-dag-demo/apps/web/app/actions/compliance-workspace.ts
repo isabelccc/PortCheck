@@ -9,11 +9,8 @@ import {
   ixbrlFactDrafts,
   versionChecklistItems,
 } from "@repo/db";
-import { and, eq } from "drizzle-orm";
-import {
-  canEditVersionContent,
-  canMutateChecklist,
-} from "../../lib/demo-role-constants";
+import { and, count, eq, isNull } from "drizzle-orm";
+import { canMutateChecklist } from "../../lib/demo-role-constants";
 import { getDemoRole } from "../../lib/demo-role-server";
 
 const ROLE_COOKIE = "demo_role";
@@ -102,54 +99,149 @@ export async function toggleChecklistItem(input: {
   return { ok: true };
 }
 
+export async function submitVersionForApproval(input: {
+  versionId: string;
+  actorId?: string;
+}): Promise<
+  | { ok: true }
+  | { ok: false; error: string; blockCount?: number }
+  | { ok: true; alreadyInReview: true }
+> {
+  const role = await getDemoRole();
+  if (!canMutateChecklist(role)) {
+    return {
+      ok: false,
+      error: "Viewer role cannot submit for approval.",
+    };
+  }
+
+  const [data] = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.id, input.versionId))
+    .limit(1);
+  if (!data) {
+    return { ok: false, error: "Version not found" };
+  }
+  if (data.status === "approved") {
+    return { ok: false, error: "Cannot submit an already approved version." };
+  }
+  if (data.status === "in_review") {
+    return { ok: true, alreadyInReview: true };
+  }
+  if (data.status !== "draft") {
+    return { ok: false, error: `Cannot submit from status ${data.status}.` };
+  }
+
+  const [row] = await db
+    .select({ n: count() })
+    .from(versionChecklistItems)
+    .where(
+      and(
+        eq(versionChecklistItems.documentVersionId, input.versionId),
+        eq(versionChecklistItems.required, true),
+        isNull(versionChecklistItems.completedAt),
+      ),
+    );
+  const blockCount = Number(row?.n ?? 0);
+  if (blockCount > 0) {
+    return {
+      ok: false,
+      error: `Complete all ${blockCount} required checklist item(s) before submitting.`,
+      blockCount,
+    };
+  }
+
+  const actor = input.actorId?.trim() || "reviewer@demo.local";
+
+  await db
+    .update(documentVersions)
+    .set({ status: "in_review" })
+    .where(
+      and(
+        eq(documentVersions.id, input.versionId),
+        eq(documentVersions.status, "draft"),
+      ),
+    );
+
+  await db.insert(auditEvents).values({
+    actorId: actor,
+    action: "version_submitted_for_approval",
+    entityType: "document_version",
+    entityId: data.id,
+    payload: {
+      documentVersionId: data.id,
+      documentId: data.documentId,
+      priorStatus: "draft",
+      newStatus: "in_review",
+    },
+  });
+
+  const docId = data.documentId;
+  revalidatePath(`/documents/${docId}`);
+  revalidatePath(`/documents/${docId}/versions/${input.versionId}`);
+  revalidatePath("/reviews");
+  revalidatePath("/audit");
+  return { ok: true };
+}
+
+
 export async function updateVersionDraftContent(input: {
   versionId: string;
   content: string;
   actorId: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const role = await getDemoRole();
-  if (!canEditVersionContent(role)) {
-    return { ok: false, error: "Only admin can edit version body in this demo." };
+  if (!canMutateChecklist(role)) {
+    return {
+      ok: false,
+      error: "Viewer role cannot edit the version body. Switch to reviewer or admin.",
+    };
   }
 
-  const [v] = await db
-    .select()
-    .from(documentVersions)
-    .where(eq(documentVersions.id, input.versionId))
-    .limit(1);
-  if (!v) {
-    return { ok: false, error: "Version not found" };
+  try {
+    const [v] = await db
+      .select()
+      .from(documentVersions)
+      .where(eq(documentVersions.id, input.versionId))
+      .limit(1);
+    if (!v) {
+      return { ok: false, error: "Version not found" };
+    }
+    if (v.status === "approved") {
+      return { ok: false, error: "Cannot edit approved versions." };
+    }
+
+    const actor = input.actorId.trim() || "reviewer@demo.local";
+    const content = input.content;
+
+    await db
+      .update(documentVersions)
+      .set({ content })
+      .where(eq(documentVersions.id, input.versionId));
+
+    await db.insert(auditEvents).values({
+      actorId: actor,
+      action: "document_version_content_updated",
+      entityType: "document_version",
+      entityId: v.id,
+      payload: {
+        documentVersionId: v.id,
+        documentId: v.documentId,
+        priorLength: v.content.length,
+        newLength: content.length,
+      },
+    });
+
+    const docId = v.documentId;
+    revalidatePath(`/documents/${docId}`);
+    revalidatePath(`/documents/${docId}/versions/${input.versionId}`);
+    revalidatePath("/audit");
+    return { ok: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Save failed";
+    return { ok: false, error: message };
   }
-  if (v.status === "approved") {
-    return { ok: false, error: "Cannot edit approved versions." };
-  }
-
-  const actor = input.actorId.trim() || "admin@demo.local";
-  const content = input.content;
-
-  await db
-    .update(documentVersions)
-    .set({ content })
-    .where(eq(documentVersions.id, input.versionId));
-
-  await db.insert(auditEvents).values({
-    actorId: actor,
-    action: "document_version_content_updated",
-    entityType: "document_version",
-    entityId: v.id,
-    payload: {
-      documentVersionId: v.id,
-      documentId: v.documentId,
-      priorLength: v.content.length,
-      newLength: content.length,
-    },
-  });
-
-  const docId = v.documentId;
-  revalidatePath(`/documents/${docId}`);
-  revalidatePath(`/documents/${docId}/versions/${input.versionId}`);
-  revalidatePath("/audit");
-  return { ok: true };
 }
 
 const QNAME_RE = /^[a-z][a-z0-9_-]*:[A-Z][a-zA-Z0-9._-]*$/;

@@ -9,10 +9,6 @@ export function canMutateWorkflow(role: DemoRole): boolean {
   return role === "reviewer" || role === "admin";
 }
 
-export function canEditVersionContent(role: DemoRole): boolean {
-  return role === "admin";
-}
-
 export function canExportFiling(role: DemoRole): boolean {
   return role === "reviewer" || role === "admin";
 }

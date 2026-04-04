@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  submitVersionForApproval,
   toggleChecklistItem,
   updateVersionDraftContent,
   validateIxbrlDraftsForVersion,
 } from "../../../../actions/compliance-workspace";
 import {
-  canEditVersionContent,
   canExportFiling,
   canMutateChecklist,
   type DemoRole,
@@ -40,6 +40,8 @@ type RedlinePart = { type: "add" | "remove" | "same"; value: string };
 
 type Tab = "content" | "redline" | "checklist" | "ixbrl" | "export";
 
+type RedlineBaselineMode = "parent" | "previous" | "none";
+
 type Props = {
   documentId: string;
   versionId: string;
@@ -51,8 +53,10 @@ type Props = {
   runId: string | null;
   checklist: ChecklistDTO[];
   facts: FactDTO[];
-  redline: RedlinePart[] | null;
-  hasParent: boolean;
+  redline: RedlinePart[];
+  redlineBaselineMode: RedlineBaselineMode;
+  /** Prior revision label when mode is `parent` or `previous`. */
+  redlineBaselineVersionLabel: string | null;
 };
 
 export function VersionWorkspaceClient({
@@ -67,7 +71,8 @@ export function VersionWorkspaceClient({
   checklist,
   facts,
   redline,
-  hasParent,
+  redlineBaselineMode,
+  redlineBaselineVersionLabel,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("content");
@@ -80,7 +85,6 @@ export function VersionWorkspaceClient({
   }, [initialContent]);
 
   const canChecklist = canMutateChecklist(demoRole);
-  const canEdit = canEditVersionContent(demoRole);
   const canExport = canExportFiling(demoRole);
 
   const requiredOpen = useMemo(() => {
@@ -107,14 +111,40 @@ export function VersionWorkspaceClient({
   async function onSaveContent() {
     setMsg(null);
     startTransition(async () => {
-      const res = await updateVersionDraftContent({
+      try {
+        const res = await updateVersionDraftContent({
+          versionId,
+          content,
+          actorId: "reviewer@demo.local",
+        });
+        if (!res.ok) {
+          setMsg(res.error);
+          return;
+        }
+        setMsg("Draft body saved.");
+        router.refresh();
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Save failed";
+        setMsg(message);
+      }
+    });
+  }
+
+  async function onSubmitForApproval() {
+    setMsg(null);
+    startTransition(async () => {
+      const res = await submitVersionForApproval({
         versionId,
-        content,
-        actorId: "admin@demo.local",
+        actorId: "reviewer@demo.local",
       });
       if (!res.ok) {
         setMsg(res.error);
         return;
+      }
+      if ("alreadyInReview" in res && res.alreadyInReview) {
+        setMsg("This version is already in review.");
+      } else {
+        setMsg("Submitted for review — document version status is now in_review.");
       }
       router.refresh();
     });
@@ -147,6 +177,72 @@ export function VersionWorkspaceClient({
         <strong>not</strong> SEC EDGAR Live, not legal advice, and not submission-grade
         Inline XBRL.
       </p>
+
+      <div
+        className={styles.workflowAutoRow}
+        style={{ marginBottom: "1rem", flexDirection: "column", alignItems: "stretch" }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+          <strong style={{ fontSize: "0.85rem" }}>Process control</strong>
+          {status === "draft" ? (
+            <span
+              className={styles.workflowPanelHint}
+              style={{ margin: 0 }}
+              role="status"
+            >
+              Blocking:{" "}
+              <strong>
+                {requiredOpen.length} required checklist item
+                {requiredOpen.length !== 1 ? "s" : ""} incomplete
+              </strong>
+              {requiredOpen.length === 0 ? (
+                <> — you may submit for review.</>
+              ) : (
+                <> — complete them before submitting.</>
+              )}
+            </span>
+          ) : null}
+          {status === "in_review" ? (
+            <span className={styles.workflowPanelHint} style={{ margin: 0 }} role="status">
+              Status <strong>in review</strong>. Checklist changes and workflow run still apply.
+            </span>
+          ) : null}
+          {status === "approved" ? (
+            <span className={styles.workflowPanelHint} style={{ margin: 0 }} role="status">
+              Version is <strong>approved</strong>.
+            </span>
+          ) : null}
+        </div>
+        {status === "draft" && canChecklist ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+            <button
+              type="button"
+              className={styles.workflowAutoRunBtn}
+              disabled={pending || requiredOpen.length > 0}
+              title={
+                requiredOpen.length > 0
+                  ? "Complete all required checklist items first."
+                  : "Sets document version status to in_review (server-enforced)."
+              }
+              onClick={() => void onSubmitForApproval()}
+            >
+              Submit for approval
+            </button>
+            <span className={styles.workspaceCheckMeta}>
+              Moves version from <code>draft</code> → <code>in_review</code> and writes an audit event.
+            </span>
+          </div>
+        ) : null}
+        {status === "draft" && !canChecklist ? (
+          <p className={styles.workflowViewerBanner} style={{ margin: 0 }} role="status">
+            Switch to <strong>reviewer</strong> or <strong>admin</strong> on{" "}
+            <a href="/compliance" className={styles.inlineLink}>
+              Compliance
+            </a>{" "}
+            to submit for approval.
+          </p>
+        ) : null}
+      </div>
 
       <div className={styles.workspaceTabs} role="tablist" aria-label="Workspace sections">
         {(
@@ -194,7 +290,7 @@ export function VersionWorkspaceClient({
                 </>
               ) : null}
             </p>
-            {canEdit ? (
+            {canChecklist ? (
               <>
                 <textarea
                   className={styles.contentEditor}
@@ -222,8 +318,8 @@ export function VersionWorkspaceClient({
             ) : (
               <>
                 <p className={styles.workflowPanelHint}>
-                  <strong>Admin</strong> role can edit body text. Current role:{" "}
-                  <strong>{demoRole}</strong> (
+                  <strong>Reviewer</strong> or <strong>admin</strong> can edit body text. Current
+                  role: <strong>{demoRole}</strong> (
                   <a href="/compliance" className={styles.inlineLink}>
                     change
                   </a>
@@ -237,15 +333,37 @@ export function VersionWorkspaceClient({
 
         {tab === "redline" ? (
           <div>
-            {!hasParent || !redline ? (
+            {redlineBaselineMode === "none" ? (
               <p className={styles.workflowPanelHint}>
-                No parent version — redline compares the current body to an empty
-                baseline, or open a version that has{" "}
-                <code>parent_version_id</code> set.
+                No baseline revision — this is the first version on the document (or
+                the parent link is missing). Redline below treats the prior text as
+                empty (all <strong>additions</strong>). Add{" "}
+                <code>parent_version_id</code> or create an older version to
+                compare.
               </p>
             ) : null}
-            <div className={styles.workspaceRedline} aria-label="Diff vs parent">
-              {(redline ?? []).map((p, i) => (
+            {redlineBaselineMode === "previous" ? (
+              <p className={styles.workflowPanelHint}>
+                No <code>parent_version_id</code> on this row — comparing to the{" "}
+                <strong>previous revision</strong> on file
+                {redlineBaselineVersionLabel ? (
+                  <>
+                    {" "}
+                    (<strong>{redlineBaselineVersionLabel}</strong>)
+                  </>
+                ) : null}
+                , ordered by creation time.
+              </p>
+            ) : null}
+            {redlineBaselineMode === "parent" && redlineBaselineVersionLabel ? (
+              <p className={styles.workflowPanelHint}>
+                Compared to linked parent version{" "}
+                <strong>{redlineBaselineVersionLabel}</strong> (
+                <code>parent_version_id</code>).
+              </p>
+            ) : null}
+            <div className={styles.workspaceRedline} aria-label="Diff vs baseline">
+              {redline.map((p, i) => (
                 <span
                   key={i}
                   className={
@@ -318,14 +436,24 @@ export function VersionWorkspaceClient({
         {tab === "ixbrl" ? (
           <div>
             <p className={styles.workflowPanelHint}>
-              Draft facts stored in <code>ixbrl_fact_drafts</code>. Demo validator
-              checks QName shape, non-empty values, and context ref pattern — not
-              full taxonomy / calculation linkbase rules.
+              Facts for each version live in <code>ixbrl_fact_drafts</code> (one row
+              per draft tag). The sample seed only attaches demo rows to{" "}
+              <strong>Corgi Innovation ETF → Risk Factors → 2025.04.1</strong>; every
+              other version starts with an empty list until you insert rows (e.g. via
+              SQL or a future editor).
             </p>
             {facts.length === 0 ? (
-              <p className={styles.empty}>No draft facts for this version.</p>
+              <p className={styles.empty}>
+                No draft facts for this version — nothing to validate here yet.
+              </p>
             ) : (
               <>
+                <p className={styles.workflowPanelHint} style={{ marginTop: "0.5rem" }}>
+                  <strong>Demo validator</strong> (button below) checks QName shape
+                  (prefix:Local with uppercase local start), non-empty values, and{" "}
+                  <code>c-…</code> context ref pattern — not full taxonomy or
+                  calculation linkbase rules.
+                </p>
                 <table className={styles.workspaceIxbrlTable}>
                   <thead>
                     <tr>

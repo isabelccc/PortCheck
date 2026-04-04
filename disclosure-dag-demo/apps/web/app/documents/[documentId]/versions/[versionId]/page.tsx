@@ -11,6 +11,56 @@ import {
   workflowRuns,
 } from "@repo/db";
 import { asc, eq } from "drizzle-orm";
+
+type RedlineBaselineMode = "parent" | "previous" | "none";
+
+async function resolveRedlineBaseline(
+  documentIdForSiblings: string,
+  versionId: string,
+  explicitParentId: string | null,
+): Promise<{
+  baselineContent: string;
+  mode: RedlineBaselineMode;
+  baselineVersionLabel: string | null;
+}> {
+  if (explicitParentId) {
+    const [p] = await db
+      .select({
+        content: documentVersions.content,
+        version: documentVersions.version,
+      })
+      .from(documentVersions)
+      .where(eq(documentVersions.id, explicitParentId))
+      .limit(1);
+    return {
+      baselineContent: p?.content ?? "",
+      mode: p ? "parent" : "none",
+      baselineVersionLabel: p?.version ?? null,
+    };
+  }
+
+  const siblings = await db
+    .select({
+      id: documentVersions.id,
+      content: documentVersions.content,
+      version: documentVersions.version,
+      createdAt: documentVersions.createdAt,
+    })
+    .from(documentVersions)
+    .where(eq(documentVersions.documentId, documentIdForSiblings))
+    .orderBy(asc(documentVersions.createdAt), asc(documentVersions.version));
+
+  const idx = siblings.findIndex((v) => v.id === versionId);
+  if (idx <= 0) {
+    return { baselineContent: "", mode: "none", baselineVersionLabel: null };
+  }
+  const prev = siblings[idx - 1]!;
+  return {
+    baselineContent: prev.content,
+    mode: "previous",
+    baselineVersionLabel: prev.version,
+  };
+}
 import { getDemoRole } from "../../../../../lib/demo-role-server";
 import styles from "../../../../disclosure.module.css";
 import { VersionWorkspaceClient } from "./version-workspace-client";
@@ -45,19 +95,16 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
     .where(eq(funds.id, row.document.fundId))
     .limit(1);
 
-  const parent = row.version.parentVersionId
-    ? await db
-        .select({ content: documentVersions.content })
-        .from(documentVersions)
-        .where(eq(documentVersions.id, row.version.parentVersionId))
-        .limit(1)
-        .then((r) => r[0] ?? null)
-    : null;
+  const { baselineContent, mode: redlineBaselineMode, baselineVersionLabel } =
+    await resolveRedlineBaseline(
+      row.document.id,
+      versionId,
+      row.version.parentVersionId,
+    );
 
-  const redlineParts = diffLines(
-    parent?.content ?? "",
-    row.version.content,
-  ).map((p) => ({
+  const redlineParts = diffLines(baselineContent, row.version.content, {
+    newlineIsToken: true,
+  }).map((p) => ({
     type: p.added ? ("add" as const) : p.removed ? ("remove" as const) : ("same" as const),
     value: p.value,
   }));
@@ -135,7 +182,8 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
             validationMessage: f.validationMessage,
           }))}
           redline={redlineParts}
-          hasParent={!!row.version.parentVersionId}
+          redlineBaselineMode={redlineBaselineMode}
+          redlineBaselineVersionLabel={baselineVersionLabel}
         />
       </main>
     </div>

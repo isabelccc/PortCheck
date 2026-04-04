@@ -1,13 +1,45 @@
 import Link from "next/link";
 import { db, documentVersions, documents, funds, versionChecklistItems } from "@repo/db";
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  DocumentPagination,
+  parseListPagination,
+} from "../components/document-pagination";
 import { getDemoRole } from "../../lib/demo-role-server";
 import styles from "../disclosure.module.css";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReviewsPage() {
+const REVIEW_QUEUE_PAGE_SIZE = 15;
+
+type PageProps = {
+  searchParams: Promise<{ page?: string; perPage?: string }>;
+};
+
+const reviewQueueWhere = or(
+  eq(documentVersions.status, "in_review"),
+  eq(documentVersions.status, "draft"),
+);
+
+export default async function ReviewsPage({ searchParams }: PageProps) {
   const role = await getDemoRole();
+  const sp = await searchParams;
+  const { page: requestedPage, perPage } = parseListPagination(
+    sp,
+    REVIEW_QUEUE_PAGE_SIZE,
+  );
+
+  const [countRow] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(documentVersions)
+    .innerJoin(documents, eq(documents.id, documentVersions.documentId))
+    .innerJoin(funds, eq(funds.id, documents.fundId))
+    .where(reviewQueueWhere);
+
+  const total = countRow?.n ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * perPage;
 
   const versions = await db
     .select({
@@ -18,14 +50,10 @@ export default async function ReviewsPage() {
     .from(documentVersions)
     .innerJoin(documents, eq(documents.id, documentVersions.documentId))
     .innerJoin(funds, eq(funds.id, documents.fundId))
-    .where(
-      or(
-        eq(documentVersions.status, "in_review"),
-        eq(documentVersions.status, "draft"),
-      ),
-    )
+    .where(reviewQueueWhere)
     .orderBy(desc(documentVersions.createdAt))
-    .limit(50);
+    .limit(perPage)
+    .offset(offset);
 
   const versionIds = versions.map((r) => r.v.id);
   const openByVersion = new Map<string, number>();
@@ -71,10 +99,30 @@ export default async function ReviewsPage() {
           </Link>
         </p>
 
+        <DocumentPagination
+          basePath="/reviews"
+          page={page}
+          perPage={perPage}
+          total={total}
+          defaultPerPage={REVIEW_QUEUE_PAGE_SIZE}
+          zeroStateMessage="No versions in draft or in_review."
+          navAriaLabel="Review queue pages"
+        />
+
         {versions.length === 0 ? (
           <p className={styles.empty}>No versions in draft or in_review.</p>
         ) : (
-          <table className={styles.reviewQueueTable}>
+          <>
+            <div
+              className={styles.sectionLabel}
+              style={{ marginTop: "1.25rem", marginBottom: "0.65rem" }}
+            >
+              Queue listing
+            </div>
+            <table
+              className={styles.reviewQueueTable}
+              aria-label="Queue listing"
+            >
             <thead>
               <tr>
                 <th>Document</th>
@@ -108,6 +156,7 @@ export default async function ReviewsPage() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </main>
     </div>
