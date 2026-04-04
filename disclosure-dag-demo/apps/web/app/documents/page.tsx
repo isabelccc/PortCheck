@@ -1,7 +1,43 @@
 import Link from "next/link";
+import { db, documents, funds } from "@repo/db";
+import { asc, eq, sql } from "drizzle-orm";
+import {
+  DocumentPagination,
+  parseDocumentPagination,
+} from "../components/document-pagination";
 import styles from "../disclosure.module.css";
 
-export default function DocumentsIndexPage() {
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams: Promise<{ page?: string; perPage?: string }>;
+};
+
+export default async function DocumentsIndexPage({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const { page: requestedPage, perPage } = parseDocumentPagination(sp);
+
+  const [countRow] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(documents);
+
+  const total = countRow?.n ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * perPage;
+
+  const rows = await db
+    .select({
+      document: documents,
+      fundName: funds.name,
+      fundTicker: funds.ticker,
+    })
+    .from(documents)
+    .innerJoin(funds, eq(documents.fundId, funds.id))
+    .orderBy(asc(funds.name), asc(documents.slug))
+    .limit(perPage)
+    .offset(offset);
+
   return (
     <div className={styles.shell}>
       <main className={styles.inner}>
@@ -10,18 +46,42 @@ export default function DocumentsIndexPage() {
         </Link>
         <h1 className={styles.display}>Documents</h1>
         <p className={styles.subtitle}>
-          Disclosure files are opened from a fund’s list. Start at{" "}
-          <Link href="/funds" className={styles.inlineLink}>
-            Funds
-          </Link>
-          , then choose <strong>Documents</strong> for a fund.
+          All disclosure documents across funds (paginated). Open a row to view
+          version history.
         </p>
-        <div className={styles.empty} style={{ textAlign: "left" }}>
-          <p style={{ marginBottom: "0.5rem" }}>
-            Direct URL pattern:
-          </p>
-          <code className={styles.slug}>/documents/[documentId]</code>
-        </div>
+        <DocumentPagination
+          basePath="/documents"
+          page={page}
+          perPage={perPage}
+          total={total}
+          zeroStateMessage="No documents"
+          navAriaLabel="Document list pages"
+        />
+        {rows.length === 0 ? (
+          <div className={styles.empty}>
+            No documents yet. Run <code>npm run db:seed</code> in{" "}
+            <code>packages/db</code>.
+          </div>
+        ) : (
+          <div className={styles.cardList}>
+            {rows.map(({ document: d, fundName, fundTicker }) => (
+              <Link
+                key={d.id}
+                href={`/documents/${d.id}`}
+                className={styles.card}
+              >
+                <div className={styles.slugRow}>
+                  <span className={styles.slug}>{d.slug}</span>
+                </div>
+                <div className={styles.cardTitle}>{d.title}</div>
+                <div className={styles.cardMeta}>
+                  {fundName}
+                  {fundTicker ? ` · ${fundTicker}` : ""}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

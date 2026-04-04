@@ -8,6 +8,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { eq, sql } from "drizzle-orm";
+import { PREMIUM_COMPANIES } from "./premiumCompanies.js";
+import {
+  bulkDocumentDraft,
+  corgiAiDraft,
+  corgiFeesDraft,
+  corgiRiskFactorsDraftV1,
+  corgiRiskFactorsDraftV2,
+  tanchRiskDraft,
+} from "./seedDocumentDrafts.js";
 
 const FUND_CORGX = "f0000001-0000-4000-8000-000000000001";
 const FUND_TANCH = "f0000002-0000-4000-8000-000000000002";
@@ -133,6 +142,12 @@ const DOC_KINDS = [
   { slug: "use-of-ai", title: "Use of artificial intelligence" },
 ];
 
+/** Unique label per synthetic fund — base name alone repeats (small adjective × flavor grid). */
+function bulkFundDisplayName(i: number): string {
+  const base = `${ADJECTIVES[(i * 5) % ADJECTIVES.length]} ${FUND_FLAVORS[i % FUND_FLAVORS.length]}`;
+  return `${base} · Series ${i}`;
+}
+
 async function main() {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   // seed.ts lives in packages/db/src — monorepo root is three levels up
@@ -157,6 +172,14 @@ async function main() {
   try {
   const companyRows = Array.from({ length: 100 }, (_, j) => {
     const i = j + 1;
+    const premium = PREMIUM_COMPANIES[j];
+    if (premium) {
+      return {
+        id: companyUuid(i),
+        name: premium.name,
+        slug: premium.slug,
+      };
+    }
     const name = `${ADJECTIVES[i % ADJECTIVES.length]} ${NOUNS[(i * 3) % NOUNS.length]}`;
     return {
       id: companyUuid(i),
@@ -169,6 +192,15 @@ async function main() {
     .insert(companies)
     .values(companyRows)
     .onConflictDoNothing({ target: companies.id });
+
+  for (let j = 0; j < PREMIUM_COMPANIES.length; j++) {
+    const p = PREMIUM_COMPANIES[j]!;
+    const i = j + 1;
+    await db
+      .update(companies)
+      .set({ name: p.name, slug: p.slug })
+      .where(eq(companies.id, companyUuid(i)));
+  }
 
   await db.insert(funds).values([
     {
@@ -199,11 +231,18 @@ async function main() {
     bulkFunds.push({
       id: bulkFundUuid(i),
       companyId: companyUuid(i),
-      name: `${ADJECTIVES[(i * 5) % ADJECTIVES.length]} ${FUND_FLAVORS[i % FUND_FLAVORS.length]}`,
+      name: bulkFundDisplayName(i),
       ticker: `D${i.toString(16).toUpperCase().padStart(4, "0")}`,
     });
   }
   await db.insert(funds).values(bulkFunds).onConflictDoNothing();
+
+  for (let i = BULK_FUND_START; i <= BULK_FUND_END; i++) {
+    await db
+      .update(funds)
+      .set({ name: bulkFundDisplayName(i) })
+      .where(eq(funds.id, bulkFundUuid(i)));
+  }
 
   const bulkDocuments = [];
   const bulkVersions = [];
@@ -223,12 +262,7 @@ async function main() {
       version: `2025.${String((i % 12) + 1).padStart(2, "0")}.1`,
       status: statuses[i % 3],
       parentVersionId: null,
-      content: [
-        `Synthetic disclosure for fund index ${i} (${kind.title}).`,
-        "",
-        "This text is demo-only seed data for UI and workflow experiments.",
-        "It is not legal, tax, or investment advice.",
-      ].join("\n"),
+      content: bulkDocumentDraft(kind.title, i),
     });
   }
 
@@ -273,14 +307,7 @@ async function main() {
       version: "2025.03.1",
       status: "draft",
       parentVersionId: null,
-      content: [
-        "Principal risks include market risk, sector concentration in technology and innovation themes,",
-        "and the possibility of greater volatility than broad market indices. The Fund may invest in",
-        "smaller-capitalization companies, which can be more volatile and less liquid.",
-        "",
-        "Cybersecurity incidents affecting issuers or service providers may disrupt operations and",
-        "adversely affect Fund performance.",
-      ].join("\n"),
+      content: corgiRiskFactorsDraftV1(),
     },
     {
       id: VER_RISK_V2,
@@ -288,17 +315,7 @@ async function main() {
       version: "2025.04.1",
       status: "in_review",
       parentVersionId: VER_RISK_V1,
-      content: [
-        "Principal risks include market risk, sector concentration in technology and innovation themes,",
-        "and the possibility of greater volatility than broad market indices. The Fund may invest in",
-        "smaller-capitalization companies, which can be more volatile and less liquid.",
-        "",
-        "Cybersecurity incidents affecting issuers or service providers may disrupt operations and",
-        "adversely affect Fund performance.",
-        "",
-        "Added April 2025: The Fund may obtain exposure to digital asset-linked instruments where",
-        "permitted by the prospectus; such exposure may amplify volatility and liquidity risk.",
-      ].join("\n"),
+      content: corgiRiskFactorsDraftV2(),
     },
     {
       id: VER_FEES_V1,
@@ -306,13 +323,7 @@ async function main() {
       version: "2025.04.1",
       status: "approved",
       parentVersionId: null,
-      content: [
-        "Management fee: 0.49% per annum of average daily net assets.",
-        "Other expenses (estimated): 0.05%. Total annual fund operating expenses: 0.54%.",
-        "",
-        "Example: A $10,000 investment with a 5% annual return would pay approximately $55 in expenses",
-        "in the first year under the stated assumptions in the prospectus fee table.",
-      ].join("\n"),
+      content: corgiFeesDraft(),
     },
     {
       id: VER_AI_V1,
@@ -320,13 +331,7 @@ async function main() {
       version: "2025.04.1",
       status: "draft",
       parentVersionId: null,
-      content: [
-        "The adviser may use internally developed tools that incorporate statistical and language models",
-        "to support research workflows. Human portfolio managers remain responsible for investment",
-        "decisions, and model outputs are subject to internal validation and documentation controls.",
-        "",
-        "There is no guarantee that model-assisted processes will improve results or avoid error.",
-      ].join("\n"),
+      content: corgiAiDraft(),
     },
     {
       id: VER_TANCH_V1,
@@ -334,12 +339,30 @@ async function main() {
       version: "2025.01.1",
       status: "approved",
       parentVersionId: null,
-      content: [
-        "Investing involves risk, including possible loss of principal. The Fund is subject to equity",
-        "securities risk, foreign investment risk, and currency risk where applicable.",
-      ].join("\n"),
+      content: tanchRiskDraft(),
     },
   ]).onConflictDoNothing();
+
+  for (const [id, content] of [
+    [VER_RISK_V1, corgiRiskFactorsDraftV1()] as const,
+    [VER_RISK_V2, corgiRiskFactorsDraftV2()] as const,
+    [VER_FEES_V1, corgiFeesDraft()] as const,
+    [VER_AI_V1, corgiAiDraft()] as const,
+    [VER_TANCH_V1, tanchRiskDraft()] as const,
+  ]) {
+    await db
+      .update(documentVersions)
+      .set({ content })
+      .where(eq(documentVersions.id, id));
+  }
+
+  for (let i = BULK_FUND_START; i <= BULK_FUND_END; i++) {
+    const kind = DOC_KINDS[i % DOC_KINDS.length]!;
+    await db
+      .update(documentVersions)
+      .set({ content: bulkDocumentDraft(kind.title, i) })
+      .where(eq(documentVersions.id, bulkVersionUuid(i)));
+  }
 
   await db
     .insert(workflowTemplates)

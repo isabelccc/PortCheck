@@ -1,13 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, documentVersions, documents, funds } from "@repo/db";
-import { eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
+import {
+  DocumentPagination,
+  parseListPagination,
+} from "../../components/document-pagination";
 import styles from "../../disclosure.module.css";
 
 export const dynamic = "force-dynamic";
 
+/** Fewer versions per page than fund lists — each block can be very long. */
+const VERSIONS_DEFAULT_PAGE_SIZE = 5;
+
 type PageProps = {
   params: Promise<{ documentId: string }>;
+  searchParams: Promise<{ page?: string; perPage?: string }>;
 };
 
 function badgeForStatus(status: string) {
@@ -29,8 +37,16 @@ function formatWhen(d: Date | string) {
   }).format(date);
 }
 
-export default async function DocumentDetailPage({ params }: PageProps) {
+export default async function DocumentDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { documentId } = await params;
+  const sp = await searchParams;
+  const { page: requestedPage, perPage } = parseListPagination(
+    sp,
+    VERSIONS_DEFAULT_PAGE_SIZE,
+  );
 
   const [doc] = await db
     .select()
@@ -48,15 +64,23 @@ export default async function DocumentDetailPage({ params }: PageProps) {
     .where(eq(funds.id, doc.fundId))
     .limit(1);
 
-  const versions = await db
-    .select()
+  const [countRow] = await db
+    .select({ n: sql<number>`count(*)::int` })
     .from(documentVersions)
     .where(eq(documentVersions.documentId, documentId));
 
-  versions.sort(
-    (a, b) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
+  const total = countRow?.n ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * perPage;
+
+  const versions = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.documentId, documentId))
+    .orderBy(asc(documentVersions.createdAt))
+    .limit(perPage)
+    .offset(offset);
 
   return (
     <div className={styles.shell}>
@@ -84,33 +108,48 @@ export default async function DocumentDetailPage({ params }: PageProps) {
           ) : null}
         </p>
 
-        <div className={styles.sectionLabel}>Version history</div>
-        {versions.length === 0 ? (
+        <div id="version-history" className={styles.sectionLabel}>
+          Version history
+        </div>
+        {total === 0 ? (
           <div className={styles.empty}>No versions yet.</div>
         ) : (
-          <div className={styles.versionStack}>
-            {versions.map((v) => (
-              <article key={v.id} className={styles.versionCard}>
-                <div className={styles.versionHead}>
-                  <span className={styles.cardTitle} style={{ marginBottom: 0 }}>
-                    {v.version}
-                  </span>
-                  <span className={badgeForStatus(v.status)}>
-                    {v.status.replaceAll("_", " ")}
-                  </span>
-                  <span className={styles.versionId}>
-                    {formatWhen(v.createdAt)}
-                  </span>
-                </div>
-                {v.parentVersionId ? (
-                  <div className={styles.parentMeta}>
-                    Parent version: {v.parentVersionId}
+          <>
+            <DocumentPagination
+              basePath={`/documents/${documentId}`}
+              page={page}
+              perPage={perPage}
+              total={total}
+              defaultPerPage={VERSIONS_DEFAULT_PAGE_SIZE}
+              navAriaLabel="Version history pages"
+            />
+            <div className={styles.versionStack}>
+              {versions.map((v) => (
+                <article key={v.id} className={styles.versionCard}>
+                  <div className={styles.versionHead}>
+                    <span
+                      className={styles.cardTitle}
+                      style={{ marginBottom: 0 }}
+                    >
+                      {v.version}
+                    </span>
+                    <span className={badgeForStatus(v.status)}>
+                      {v.status.replaceAll("_", " ")}
+                    </span>
+                    <span className={styles.versionId}>
+                      {formatWhen(v.createdAt)}
+                    </span>
                   </div>
-                ) : null}
-                <pre className={styles.contentBlock}>{v.content}</pre>
-              </article>
-            ))}
-          </div>
+                  {v.parentVersionId ? (
+                    <div className={styles.parentMeta}>
+                      Parent version: {v.parentVersionId}
+                    </div>
+                  ) : null}
+                  <pre className={styles.contentBlock}>{v.content}</pre>
+                </article>
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
