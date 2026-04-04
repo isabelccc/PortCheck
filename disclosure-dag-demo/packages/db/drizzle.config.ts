@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.join(__dirname, "../../.env") });
 loadEnv({ path: path.join(__dirname, ".env") });
 export default defineConfig({
-  schema: "./src/schema.ts",
+  schema: ["./src/schema.ts", "./src/workflow.ts"],
   out: "./migrations",
   dialect: "postgresql",
   dbCredentials: {

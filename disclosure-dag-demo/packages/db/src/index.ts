@@ -1,7 +1,10 @@
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import * as schema from "./schema";
+import * as schemaCore from "./schema";
+import * as workflow from "./workflow";
+
+const schema = { ...schemaCore, ...workflow };
 
 export type AppDb = PostgresJsDatabase<typeof schema>;
 
@@ -23,3 +26,4 @@ export async function closeDb(): Promise<void> {
 }
 
 export * from "./schema";
+export * from "./workflow";

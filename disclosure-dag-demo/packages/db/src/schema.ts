@@ -49,3 +49,5 @@ export const documentVersions = pgTable("document_versions", {
     .notNull()
     .defaultNow(),
 });
+
+
