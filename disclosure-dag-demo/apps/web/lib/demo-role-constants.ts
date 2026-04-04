@@ -13,7 +13,7 @@ export function canExportFiling(role: DemoRole): boolean {
   return role === "reviewer" || role === "admin";
 }
 
-/** Final document sign-off (Series B–style segregation from line reviewers). */
+/** Final document sign-off (segregated from line reviewers in this demo). */
 export function canApproveDocumentVersion(role: DemoRole): boolean {
   return role === "admin";
 }

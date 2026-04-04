@@ -269,8 +269,8 @@ export function VersionWorkspaceClient({
               QA gates &amp; approvals
             </h2>
             <p className={styles.workflowPanelHint} style={{ margin: "0.25rem 0 0" }}>
-              Series B–style model: required checklist + workflow final step must pass
-              before <strong>admin</strong> document sign-off. Line reviewers can{" "}
+              Required checklist + workflow final step must pass before{" "}
+              <strong>admin</strong> document sign-off. Line reviewers can{" "}
               <strong>reject</strong> back from queue.
             </p>
           </div>

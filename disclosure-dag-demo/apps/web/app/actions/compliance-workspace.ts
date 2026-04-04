@@ -80,7 +80,7 @@ export async function toggleChecklistItem(input: {
     if (!note || note.length < minLen) {
       return {
         ok: false,
-        error: `Required checklist items need an evidence note of at least ${minLen} characters (Series B–style attestation).`,
+        error: `Required checklist items need an evidence note of at least ${minLen} characters (attestation for audit trail).`,
       };
     }
   }
