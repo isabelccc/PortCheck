@@ -62,6 +62,7 @@ async function resolveRedlineBaseline(
   };
 }
 import { getDemoRole } from "../../../../../lib/demo-role-server";
+import { getVersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
 import styles from "../../../../disclosure.module.css";
 import { VersionWorkspaceClient } from "./version-workspace-client";
 
@@ -127,6 +128,8 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
     .where(eq(workflowRuns.documentVersionId, versionId))
     .limit(1);
 
+  const approvalReadiness = await getVersionApprovalReadiness(versionId);
+
   return (
     <div className={styles.shell}>
       <main className={styles.inner}>
@@ -184,6 +187,7 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
           redline={redlineParts}
           redlineBaselineMode={redlineBaselineMode}
           redlineBaselineVersionLabel={baselineVersionLabel}
+          approvalReadiness={approvalReadiness}
         />
       </main>
     </div>

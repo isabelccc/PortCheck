@@ -40,8 +40,8 @@ export default async function CompliancePage() {
             style={{ maxWidth: "12rem", minHeight: "unset", padding: "0.4rem" }}
           >
             <option value="viewer">viewer — read-only</option>
-            <option value="reviewer">reviewer — checklist, workflow, export</option>
-            <option value="admin">admin — + edit version body</option>
+            <option value="reviewer">reviewer — checklist, workflow, export, reject</option>
+            <option value="admin">admin — + formal document approve (sign-off)</option>
           </select>
           <button type="submit" className={styles.workflowAutoRunBtn}>
             Save role

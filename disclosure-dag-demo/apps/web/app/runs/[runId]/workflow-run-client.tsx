@@ -68,6 +68,8 @@ type Props = {
   baseEdges: Edge[];
   steps: StepRow[];
   demoRole: DemoRole;
+  linkedVersionStatus: string;
+  openRequiredChecklist: number;
 };
 
 export function WorkflowRunClient({
@@ -76,6 +78,8 @@ export function WorkflowRunClient({
   baseEdges,
   steps,
   demoRole,
+  linkedVersionStatus,
+  openRequiredChecklist,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -252,8 +256,52 @@ export function WorkflowRunClient({
     )
     .join(", ");
 
+  const finalNode = baseNodes.find((n) => n.data.nodeKey === "final_approval");
+  const finalStatus = finalNode
+    ? (displaySteps.find((s) => s.nodeId === finalNode.data.nodeId)?.status ?? "")
+    : "";
+
   return (
     <div>
+      <div
+        className={styles.workflowPanel}
+        style={{ marginBottom: "1rem", padding: "1rem 1.15rem" }}
+      >
+        <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
+          QA / approval engine coupling
+        </div>
+        <p className={styles.workflowPanelHint} style={{ marginBottom: "0.5rem" }}>
+          Completing <strong>Final approval</strong> on this DAG is server-gated: the
+          linked document version must be <code>in_review</code>, and every{" "}
+          <strong>required</strong> Filing QA checklist row must be closed first.
+          Admin <strong>document sign-off</strong> in the QA workspace then requires
+          this final step to be <code>completed</code>.
+        </p>
+        {linkedVersionStatus !== "in_review" ? (
+          <p className={styles.workflowError} role="status">
+            Linked version is <strong>{linkedVersionStatus.replaceAll("_", " ")}</strong>{" "}
+            — use <em>Submit for approval</em> from the Filing QA workspace so the
+            version is <code>in_review</code> before finishing final approval.
+          </p>
+        ) : null}
+        {openRequiredChecklist > 0 ? (
+          <p className={styles.workflowError} role="status">
+            <strong>{openRequiredChecklist}</strong> required checklist item(s) still
+            open on the linked version — final approval completion is blocked.
+          </p>
+        ) : linkedVersionStatus === "in_review" ? (
+          <p className={styles.workflowPanelHint} role="status">
+            QA gate: no open <strong>required</strong> checklist items for linked
+            version.
+          </p>
+        ) : null}
+        {finalNode ? (
+          <p className={styles.workflowPanelHint} style={{ marginTop: "0.35rem" }}>
+            Final approval step status: <strong>{finalStatus || "—"}</strong>
+          </p>
+        ) : null}
+      </div>
+
       <section
         className={styles.workflowProgressSection}
         aria-busy={busy}

@@ -12,3 +12,17 @@ export function canMutateWorkflow(role: DemoRole): boolean {
 export function canExportFiling(role: DemoRole): boolean {
   return role === "reviewer" || role === "admin";
 }
+
+/** Final document sign-off (Series B–style segregation from line reviewers). */
+export function canApproveDocumentVersion(role: DemoRole): boolean {
+  return role === "admin";
+}
+
+/** Send back from review queue (compliance / counsel). */
+export function canRejectDocumentVersion(role: DemoRole): boolean {
+  return role === "reviewer" || role === "admin";
+}
+
+export function canReopenRejectedVersion(role: DemoRole): boolean {
+  return role === "reviewer" || role === "admin";
+}

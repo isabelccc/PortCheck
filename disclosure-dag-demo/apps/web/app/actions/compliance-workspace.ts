@@ -10,8 +10,14 @@ import {
   versionChecklistItems,
 } from "@repo/db";
 import { and, count, eq, isNull } from "drizzle-orm";
-import { canMutateChecklist } from "../../lib/demo-role-constants";
+import {
+  canApproveDocumentVersion,
+  canMutateChecklist,
+  canRejectDocumentVersion,
+  canReopenRejectedVersion,
+} from "../../lib/demo-role-constants";
 import { getDemoRole } from "../../lib/demo-role-server";
+import { getVersionApprovalReadiness } from "../../lib/version-approval-readiness";
 
 const ROLE_COOKIE = "demo_role";
 
@@ -69,6 +75,16 @@ export async function toggleChecklistItem(input: {
   const actor = input.actorId.trim() || "reviewer@demo.local";
   const note = input.evidenceNote?.trim() || null;
 
+  if (input.completed && row.item.required) {
+    const minLen = 12;
+    if (!note || note.length < minLen) {
+      return {
+        ok: false,
+        error: `Required checklist items need an evidence note of at least ${minLen} characters (Series B–style attestation).`,
+      };
+    }
+  }
+
   await db
     .update(versionChecklistItems)
     .set({
@@ -125,6 +141,13 @@ export async function submitVersionForApproval(input: {
   }
   if (data.status === "approved") {
     return { ok: false, error: "Cannot submit an already approved version." };
+  }
+  if (data.status === "rejected") {
+    return {
+      ok: false,
+      error:
+        "This version was rejected — use “Reopen as draft” in the QA workspace, then fix and resubmit.",
+    };
   }
   if (data.status === "in_review") {
     return { ok: true, alreadyInReview: true };
@@ -185,6 +208,223 @@ export async function submitVersionForApproval(input: {
   return { ok: true };
 }
 
+const MIN_SIGNOFF_NOTE = 24;
+
+export async function approveDocumentVersion(input: {
+  versionId: string;
+  actorId?: string;
+  rationale: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getDemoRole();
+  if (!canApproveDocumentVersion(role)) {
+    return {
+      ok: false,
+      error:
+        "Only the admin role may record formal document approval (demo segregation of duties).",
+    };
+  }
+
+  const rationale = input.rationale.trim();
+  if (rationale.length < MIN_SIGNOFF_NOTE) {
+    return {
+      ok: false,
+      error: `Approval rationale must be at least ${MIN_SIGNOFF_NOTE} characters.`,
+    };
+  }
+
+  const [v] = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.id, input.versionId))
+    .limit(1);
+  if (!v) {
+    return { ok: false, error: "Version not found" };
+  }
+  if (v.status !== "in_review") {
+    return {
+      ok: false,
+      error: "Only versions in_review can be approved.",
+    };
+  }
+
+  const readiness = await getVersionApprovalReadiness(input.versionId);
+  if (readiness.requiredOpen > 0) {
+    return {
+      ok: false,
+      error: `Approval blocked: ${readiness.requiredOpen} required checklist item(s) still open.`,
+    };
+  }
+  if (readiness.runId && !readiness.finalApprovalComplete) {
+    return {
+      ok: false,
+      error: `Approval blocked: complete workflow step “${readiness.finalApprovalLabel ?? "Final approval"}” on the linked run before document sign-off.`,
+    };
+  }
+
+  const actor = input.actorId?.trim() || "admin@demo.local";
+
+  const updated = await db
+    .update(documentVersions)
+    .set({ status: "approved" })
+    .where(
+      and(
+        eq(documentVersions.id, input.versionId),
+        eq(documentVersions.status, "in_review"),
+      ),
+    )
+    .returning({ id: documentVersions.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "Version state changed — refresh and retry." };
+  }
+
+  await db.insert(auditEvents).values({
+    actorId: actor,
+    action: "version_approved",
+    entityType: "document_version",
+    entityId: v.id,
+    payload: {
+      documentVersionId: v.id,
+      documentId: v.documentId,
+      priorStatus: "in_review",
+      newStatus: "approved",
+      rationale,
+    },
+  });
+
+  revalidatePath(`/documents/${v.documentId}`);
+  revalidatePath(`/documents/${v.documentId}/versions/${input.versionId}`);
+  revalidatePath("/reviews");
+  revalidatePath("/runs");
+  revalidatePath("/audit");
+  return { ok: true };
+}
+
+export async function rejectDocumentVersion(input: {
+  versionId: string;
+  actorId?: string;
+  rationale: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getDemoRole();
+  if (!canRejectDocumentVersion(role)) {
+    return { ok: false, error: "Viewer cannot reject a version." };
+  }
+
+  const rationale = input.rationale.trim();
+  if (rationale.length < MIN_SIGNOFF_NOTE) {
+    return {
+      ok: false,
+      error: `Rejection rationale must be at least ${MIN_SIGNOFF_NOTE} characters.`,
+    };
+  }
+
+  const [v] = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.id, input.versionId))
+    .limit(1);
+  if (!v) {
+    return { ok: false, error: "Version not found" };
+  }
+  if (v.status !== "in_review") {
+    return { ok: false, error: "Only versions in_review can be rejected." };
+  }
+
+  const actor = input.actorId?.trim() || "reviewer@demo.local";
+
+  const updated = await db
+    .update(documentVersions)
+    .set({ status: "rejected" })
+    .where(
+      and(
+        eq(documentVersions.id, input.versionId),
+        eq(documentVersions.status, "in_review"),
+      ),
+    )
+    .returning({ id: documentVersions.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "Version state changed — refresh and retry." };
+  }
+
+  await db.insert(auditEvents).values({
+    actorId: actor,
+    action: "version_rejected",
+    entityType: "document_version",
+    entityId: v.id,
+    payload: {
+      documentVersionId: v.id,
+      documentId: v.documentId,
+      priorStatus: "in_review",
+      newStatus: "rejected",
+      rationale,
+    },
+  });
+
+  revalidatePath(`/documents/${v.documentId}`);
+  revalidatePath(`/documents/${v.documentId}/versions/${input.versionId}`);
+  revalidatePath("/reviews");
+  revalidatePath("/audit");
+  return { ok: true };
+}
+
+export async function reopenRejectedVersion(input: {
+  versionId: string;
+  actorId?: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getDemoRole();
+  if (!canReopenRejectedVersion(role)) {
+    return { ok: false, error: "Viewer cannot reopen a rejected version." };
+  }
+
+  const [v] = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.id, input.versionId))
+    .limit(1);
+  if (!v) {
+    return { ok: false, error: "Version not found" };
+  }
+  if (v.status !== "rejected") {
+    return { ok: false, error: "Only rejected versions can be reopened as draft." };
+  }
+
+  const actor = input.actorId?.trim() || "reviewer@demo.local";
+
+  const updated = await db
+    .update(documentVersions)
+    .set({ status: "draft" })
+    .where(
+      and(
+        eq(documentVersions.id, input.versionId),
+        eq(documentVersions.status, "rejected"),
+      ),
+    )
+    .returning({ id: documentVersions.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "Version state changed — refresh and retry." };
+  }
+
+  await db.insert(auditEvents).values({
+    actorId: actor,
+    action: "version_reopened_to_draft",
+    entityType: "document_version",
+    entityId: v.id,
+    payload: {
+      documentVersionId: v.id,
+      documentId: v.documentId,
+      priorStatus: "rejected",
+      newStatus: "draft",
+    },
+  });
+
+  revalidatePath(`/documents/${v.documentId}`);
+  revalidatePath(`/documents/${v.documentId}/versions/${input.versionId}`);
+  revalidatePath("/reviews");
+  revalidatePath("/audit");
+  return { ok: true };
+}
 
 export async function updateVersionDraftContent(input: {
   versionId: string;

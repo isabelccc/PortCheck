@@ -12,6 +12,7 @@ import {
   stepExecutions,
 } from "@repo/db";
 import { asc, eq } from "drizzle-orm";
+import { countOpenRequiredChecklist } from "../../../lib/version-approval-readiness";
 import type { Edge, Node } from "@xyflow/react";
 import { getDemoRole } from "../../../lib/demo-role-server";
 import { WorkflowRunClient } from "./workflow-run-client";
@@ -74,6 +75,10 @@ export default async function WorkflowRunPage({ params }: PageProps) {
     .from(stepExecutions)
     .where(eq(stepExecutions.runId, runId))
     .orderBy(asc(stepExecutions.createdAt));
+
+  const openRequiredChecklist = await countOpenRequiredChecklist(
+    row.version.id,
+  );
 
   const statusByNodeId = new Map(steps.map((s) => [s.nodeId, s.status]));
 
@@ -143,6 +148,8 @@ export default async function WorkflowRunPage({ params }: PageProps) {
           baseNodes={baseNodes}
           baseEdges={baseEdges}
           demoRole={demoRole}
+          linkedVersionStatus={row.version.status}
+          openRequiredChecklist={openRequiredChecklist}
           steps={steps.map((s) => ({
             id: s.id,
             nodeId: s.nodeId,

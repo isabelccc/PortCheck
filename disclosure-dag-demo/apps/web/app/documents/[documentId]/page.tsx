@@ -30,6 +30,8 @@ function badgeForStatus(status: string) {
       return `${styles.badge} ${styles.badgeApproved}`;
     case "in_review":
       return `${styles.badge} ${styles.badgeReview}`;
+    case "rejected":
+      return `${styles.badge} ${styles.badgeRejected}`;
     default:
       return `${styles.badge} ${styles.badgeDraft}`;
   }

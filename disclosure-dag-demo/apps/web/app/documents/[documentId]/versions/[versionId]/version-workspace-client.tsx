@@ -4,16 +4,23 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  approveDocumentVersion,
+  rejectDocumentVersion,
+  reopenRejectedVersion,
   submitVersionForApproval,
   toggleChecklistItem,
   updateVersionDraftContent,
   validateIxbrlDraftsForVersion,
 } from "../../../../actions/compliance-workspace";
 import {
+  canApproveDocumentVersion,
   canExportFiling,
   canMutateChecklist,
+  canRejectDocumentVersion,
+  canReopenRejectedVersion,
   type DemoRole,
 } from "../../../../../lib/demo-role-constants";
+import type { VersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
 import styles from "../../../../disclosure.module.css";
 
 export type ChecklistDTO = {
@@ -57,6 +64,7 @@ type Props = {
   redlineBaselineMode: RedlineBaselineMode;
   /** Prior revision label when mode is `parent` or `previous`. */
   redlineBaselineVersionLabel: string | null;
+  approvalReadiness: VersionApprovalReadiness;
 };
 
 export function VersionWorkspaceClient({
@@ -73,12 +81,15 @@ export function VersionWorkspaceClient({
   redline,
   redlineBaselineMode,
   redlineBaselineVersionLabel,
+  approvalReadiness,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("content");
   const [content, setContent] = useState(initialContent);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [approveNote, setApproveNote] = useState("");
+  const [rejectNote, setRejectNote] = useState("");
 
   useEffect(() => {
     setContent(initialContent);
@@ -86,10 +97,27 @@ export function VersionWorkspaceClient({
 
   const canChecklist = canMutateChecklist(demoRole);
   const canExport = canExportFiling(demoRole);
+  const canApprove = canApproveDocumentVersion(demoRole);
+  const canReject = canRejectDocumentVersion(demoRole);
+  const canReopen = canReopenRejectedVersion(demoRole);
 
   const requiredOpen = useMemo(() => {
     return checklist.filter((c) => c.required && !c.completedAt);
   }, [checklist]);
+
+  const checklistByCategory = useMemo(() => {
+    const m = new Map<string, ChecklistDTO[]>();
+    for (const c of checklist) {
+      const k = c.category || "other";
+      const list = m.get(k) ?? [];
+      list.push(c);
+      m.set(k, list);
+    }
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [checklist]);
+
+  const DEFAULT_EVIDENCE_REQUIRED =
+    "Acknowledged in filing QA workspace with control evidence sufficient for audit trail (demo).";
 
   async function onToggleCheck(itemId: string, completed: boolean) {
     setMsg(null);
@@ -98,7 +126,7 @@ export function VersionWorkspaceClient({
         itemId,
         completed,
         actorId: "reviewer@demo.local",
-        evidenceNote: completed ? "Acknowledged in QA workspace" : null,
+        evidenceNote: completed ? DEFAULT_EVIDENCE_REQUIRED : null,
       });
       if (!res.ok) {
         setMsg(res.error);
@@ -169,6 +197,58 @@ export function VersionWorkspaceClient({
     });
   }
 
+  async function onApproveVersion() {
+    setMsg(null);
+    startTransition(async () => {
+      const res = await approveDocumentVersion({
+        versionId,
+        actorId: "admin@demo.local",
+        rationale: approveNote,
+      });
+      if (!res.ok) {
+        setMsg(res.error);
+        return;
+      }
+      setApproveNote("");
+      setMsg("Version approved — status is now approved (formal sign-off recorded).");
+      router.refresh();
+    });
+  }
+
+  async function onRejectVersion() {
+    setMsg(null);
+    startTransition(async () => {
+      const res = await rejectDocumentVersion({
+        versionId,
+        actorId: "reviewer@demo.local",
+        rationale: rejectNote,
+      });
+      if (!res.ok) {
+        setMsg(res.error);
+        return;
+      }
+      setRejectNote("");
+      setMsg("Version rejected — moved to rejected until reopened as draft.");
+      router.refresh();
+    });
+  }
+
+  async function onReopenRejected() {
+    setMsg(null);
+    startTransition(async () => {
+      const res = await reopenRejectedVersion({
+        versionId,
+        actorId: "reviewer@demo.local",
+      });
+      if (!res.ok) {
+        setMsg(res.error);
+        return;
+      }
+      setMsg("Reopened as draft — you may edit and resubmit for review.");
+      router.refresh();
+    });
+  }
+
   return (
     <div>
       <p className={styles.workspaceDisclaimer}>
@@ -179,68 +259,233 @@ export function VersionWorkspaceClient({
       </p>
 
       <div
-        className={styles.workflowAutoRow}
-        style={{ marginBottom: "1rem", flexDirection: "column", alignItems: "stretch" }}
+        className={styles.workflowProgressSection}
+        style={{ marginBottom: "1rem" }}
+        aria-label="Process control and gates"
       >
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
-          <strong style={{ fontSize: "0.85rem" }}>Process control</strong>
-          {status === "draft" ? (
-            <span
-              className={styles.workflowPanelHint}
-              style={{ margin: 0 }}
-              role="status"
-            >
-              Blocking:{" "}
-              <strong>
-                {requiredOpen.length} required checklist item
-                {requiredOpen.length !== 1 ? "s" : ""} incomplete
-              </strong>
-              {requiredOpen.length === 0 ? (
-                <> — you may submit for review.</>
-              ) : (
-                <> — complete them before submitting.</>
-              )}
+        <div className={styles.workflowProgressHeader}>
+          <div>
+            <h2 className={styles.workflowProgressTitle} style={{ fontSize: "1rem" }}>
+              QA gates &amp; approvals
+            </h2>
+            <p className={styles.workflowPanelHint} style={{ margin: "0.25rem 0 0" }}>
+              Series B–style model: required checklist + workflow final step must pass
+              before <strong>admin</strong> document sign-off. Line reviewers can{" "}
+              <strong>reject</strong> back from queue.
+            </p>
+          </div>
+          <div className={styles.workflowProgressFraction}>
+            <span className={styles.workflowProgressBig}>
+              {approvalReadiness.requiredDone}/{approvalReadiness.requiredTotal || "—"}
             </span>
+            <span className={styles.workflowProgressSmall}>required QA done</span>
+          </div>
+        </div>
+        <div
+          className={styles.workspaceQaBarTrack}
+          role="progressbar"
+          aria-valuenow={approvalReadiness.checklistProgressPct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div
+            className={styles.workspaceQaBarFill}
+            style={{
+              width: `${approvalReadiness.requiredTotal === 0 ? 0 : approvalReadiness.checklistProgressPct}%`,
+            }}
+          />
+        </div>
+        <div className={styles.workspaceQaCategoryRow}>
+          <span>
+            Workflow:{" "}
+            {approvalReadiness.runId ? (
+              <>
+                <Link
+                  href={`/runs/${approvalReadiness.runId}`}
+                  className={styles.inlineLink}
+                >
+                  linked run
+                </Link>
+                {approvalReadiness.finalApprovalLabel ? (
+                  <>
+                    {" "}
+                    · final step{" "}
+                    <strong>
+                      {approvalReadiness.finalApprovalComplete ? "done" : "open"}
+                    </strong>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              "no run on this version"
+            )}
+          </span>
+          <span>
+            Status: <strong>{status.replaceAll("_", " ")}</strong>
+          </span>
+        </div>
+
+        {status === "draft" ? (
+          <p className={styles.workflowPanelHint} style={{ marginTop: "0.75rem" }} role="status">
+            <strong>Submit</strong> blocked while{" "}
+            <strong>{requiredOpen.length}</strong> required checklist item
+            {requiredOpen.length !== 1 ? "s" : ""} incomplete.
+            {requiredOpen.length === 0
+              ? " You may submit for review."
+              : " Finish QA tab first."}
+          </p>
+        ) : null}
+        {status === "in_review" ? (
+          <p className={styles.workflowPanelHint} style={{ marginTop: "0.75rem" }} role="status">
+            In <strong>review queue</strong>. Admin sign-off requires all required QA
+            items + workflow <em>final approval</em> complete.
+          </p>
+        ) : null}
+        {status === "rejected" ? (
+          <p className={styles.workflowError} style={{ marginTop: "0.75rem" }} role="status">
+            <strong>Rejected</strong> — reopen as draft to revise, then resubmit.
+          </p>
+        ) : null}
+        {status === "approved" ? (
+          <p className={styles.workflowPanelHint} style={{ marginTop: "0.75rem" }} role="status">
+            <strong>Approved</strong> — version locked for editing; audit retains history.
+          </p>
+        ) : null}
+
+        <div
+          style={{
+            marginTop: "0.85rem",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+            alignItems: "center",
+          }}
+        >
+          {status === "draft" && canChecklist ? (
+            <>
+              <button
+                type="button"
+                className={styles.workflowAutoRunBtn}
+                disabled={pending || requiredOpen.length > 0}
+                title={
+                  requiredOpen.length > 0
+                    ? "Complete all required checklist items first."
+                    : "draft → in_review"
+                }
+                onClick={() => void onSubmitForApproval()}
+              >
+                Submit for approval
+              </button>
+              <span className={styles.workspaceCheckMeta}>
+                Enters review queue · audit event
+              </span>
+            </>
           ) : null}
-          {status === "in_review" ? (
-            <span className={styles.workflowPanelHint} style={{ margin: 0 }} role="status">
-              Status <strong>in review</strong>. Checklist changes and workflow run still apply.
-            </span>
-          ) : null}
-          {status === "approved" ? (
-            <span className={styles.workflowPanelHint} style={{ margin: 0 }} role="status">
-              Version is <strong>approved</strong>.
-            </span>
+          {status === "draft" && !canChecklist ? (
+            <p className={styles.workflowViewerBanner} style={{ margin: 0 }}>
+              Switch to reviewer/admin on{" "}
+              <a href="/compliance" className={styles.inlineLink}>
+                Compliance
+              </a>{" "}
+              to submit.
+            </p>
           ) : null}
         </div>
-        {status === "draft" && canChecklist ? (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+
+        {status === "in_review" ? (
+          <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid var(--pilot-line)" }}>
+            <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
+              Document decision
+            </div>
+            {!canReject && !canApprove ? (
+              <p className={styles.workflowViewerBanner}>
+                Read-only — switch role on{" "}
+                <a href="/compliance" className={styles.inlineLink}>
+                  Compliance
+                </a>
+                .
+              </p>
+            ) : null}
+            {canReject ? (
+              <div style={{ marginBottom: "0.75rem" }}>
+                <label className={styles.workflowEvidenceField}>
+                  <span className={styles.workflowEvidenceLabel}>
+                    Rejection rationale (reviewer/admin, min 24 chars)
+                  </span>
+                  <textarea
+                    className={styles.workflowEvidenceTextarea}
+                    rows={2}
+                    value={rejectNote}
+                    onChange={(e) => setRejectNote(e.target.value)}
+                    placeholder="e.g. Material cross-reference errors; must correct before supervisory sign-off."
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={styles.workflowAutoStopBtn}
+                  disabled={pending || rejectNote.trim().length < 24}
+                  onClick={() => void onRejectVersion()}
+                >
+                  Reject version
+                </button>
+              </div>
+            ) : null}
+            {canApprove ? (
+              <div>
+                <label className={styles.workflowEvidenceField}>
+                  <span className={styles.workflowEvidenceLabel}>
+                    Approval attestation (admin only, min 24 chars)
+                  </span>
+                  <textarea
+                    className={styles.workflowEvidenceTextarea}
+                    rows={3}
+                    value={approveNote}
+                    onChange={(e) => setApproveNote(e.target.value)}
+                    placeholder="e.g. I attest required QA and workflow final approval are complete; no blockers known."
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={styles.workflowAutoRunBtn}
+                  disabled={
+                    pending ||
+                    approveNote.trim().length < 24 ||
+                    approvalReadiness.requiredOpen > 0 ||
+                    (approvalReadiness.runId !== null &&
+                      !approvalReadiness.finalApprovalComplete)
+                  }
+                  title={
+                    approvalReadiness.requiredOpen > 0
+                      ? "Close required checklist items."
+                      : approvalReadiness.runId && !approvalReadiness.finalApprovalComplete
+                        ? "Complete final workflow approval on the linked run."
+                        : undefined
+                  }
+                  onClick={() => void onApproveVersion()}
+                >
+                  Approve version (sign-off)
+                </button>
+              </div>
+            ) : (
+              <p className={styles.workflowPanelHint} style={{ marginTop: "0.35rem" }}>
+                Formal <strong>Approve version</strong> is restricted to the{" "}
+                <strong>admin</strong> role (segregation of duties).
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {status === "rejected" && canReopen ? (
+          <div style={{ marginTop: "0.75rem" }}>
             <button
               type="button"
               className={styles.workflowAutoRunBtn}
-              disabled={pending || requiredOpen.length > 0}
-              title={
-                requiredOpen.length > 0
-                  ? "Complete all required checklist items first."
-                  : "Sets document version status to in_review (server-enforced)."
-              }
-              onClick={() => void onSubmitForApproval()}
+              disabled={pending}
+              onClick={() => void onReopenRejected()}
             >
-              Submit for approval
+              Reopen as draft
             </button>
-            <span className={styles.workspaceCheckMeta}>
-              Moves version from <code>draft</code> → <code>in_review</code> and writes an audit event.
-            </span>
           </div>
-        ) : null}
-        {status === "draft" && !canChecklist ? (
-          <p className={styles.workflowViewerBanner} style={{ margin: 0 }} role="status">
-            Switch to <strong>reviewer</strong> or <strong>admin</strong> on{" "}
-            <a href="/compliance" className={styles.inlineLink}>
-              Compliance
-            </a>{" "}
-            to submit for approval.
-          </p>
         ) : null}
       </div>
 
@@ -384,10 +629,26 @@ export function VersionWorkspaceClient({
         {tab === "checklist" ? (
           <div>
             <p className={styles.workflowPanelHint}>
-              Required items still open:{" "}
-              <strong>{requiredOpen.length}</strong>. Toggling writes{" "}
-              <code>audit_events</code> with evidence notes (demo).
+              <strong>Blocking discipline:</strong> required rows need an evidence note
+              (≥12 chars) when checked. Open items block{" "}
+              <strong>Submit for approval</strong> and (with workflow){" "}
+              <strong>Final approval</strong> on the DAG.
             </p>
+            <div className={styles.workspaceQaCategoryRow} style={{ marginBottom: "0.75rem" }}>
+              <span>
+                Progress: <strong>{approvalReadiness.requiredDone}</strong> /{" "}
+                <strong>{approvalReadiness.requiredTotal}</strong> required
+              </span>
+              <span>
+                {requiredOpen.length === 0 ? (
+                  <span style={{ color: "#15803d" }}>Submit unblocked</span>
+                ) : (
+                  <span style={{ color: "#b45309" }}>
+                    {requiredOpen.length} blocker(s)
+                  </span>
+                )}
+              </span>
+            </div>
             {!canChecklist ? (
               <p className={styles.workflowViewerBanner}>
                 Switch to <strong>reviewer</strong> or <strong>admin</strong> on{" "}
@@ -400,35 +661,47 @@ export function VersionWorkspaceClient({
             {checklist.length === 0 ? (
               <p className={styles.empty}>No checklist rows for this version (run db migrate + seed).</p>
             ) : (
-              <ul className={styles.workspaceChecklist}>
-                {checklist.map((c) => (
-                  <li key={c.id} className={styles.workspaceCheckRow}>
-                    <input
-                      type="checkbox"
-                      checked={!!c.completedAt}
-                      disabled={!canChecklist || pending}
-                      onChange={(e) => void onToggleCheck(c.id, e.target.checked)}
-                      aria-label={c.label}
-                    />
-                    <div>
-                      <div>
-                        <strong>{c.label}</strong>{" "}
-                        <span className={styles.policyCode}>({c.code})</span>{" "}
-                        <span className={styles.workspaceCheckMeta}>
-                          {c.category}
-                          {c.required ? " · required" : ""}
-                        </span>
-                      </div>
-                      {c.completedAt ? (
-                        <div className={styles.workspaceCheckMeta}>
-                          Done {c.completedAt} by {c.completedBy}
-                          {c.evidenceNote ? ` — ${c.evidenceNote}` : ""}
-                        </div>
-                      ) : null}
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                {checklistByCategory.map(([category, items]) => (
+                  <section key={category}>
+                    <div className={styles.sectionLabel} style={{ margin: "0 0 0.5rem" }}>
+                      {category.replaceAll("_", " ")}
                     </div>
-                  </li>
+                    <ul className={styles.workspaceChecklist}>
+                      {items.map((c) => (
+                        <li key={c.id} className={styles.workspaceCheckRow}>
+                          <input
+                            type="checkbox"
+                            checked={!!c.completedAt}
+                            disabled={!canChecklist || pending || status === "approved"}
+                            onChange={(e) => void onToggleCheck(c.id, e.target.checked)}
+                            aria-label={c.label}
+                          />
+                          <div>
+                            <div>
+                              <strong>{c.label}</strong>{" "}
+                              <span className={styles.policyCode}>({c.code})</span>{" "}
+                              <span className={styles.workspaceCheckMeta}>
+                                {c.required ? "required" : "optional"}
+                              </span>
+                            </div>
+                            {c.completedAt ? (
+                              <div className={styles.workspaceCheckMeta}>
+                                Done {c.completedAt} by {c.completedBy}
+                                {c.evidenceNote ? ` — ${c.evidenceNote}` : ""}
+                              </div>
+                            ) : c.required ? (
+                              <div className={styles.workspaceCheckMeta}>
+                                Evidence ≥12 chars applied when you check this box.
+                              </div>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         ) : null}
@@ -507,6 +780,13 @@ export function VersionWorkspaceClient({
               demos — production filings use EDGAR Filer Manual workflows and
               certified software.
             </p>
+            {status !== "approved" ? (
+              <p className={styles.workflowPanelHint}>
+                <strong>Controlled disclosure:</strong> this demo still allows export
+                while not approved; production would tie download entitlements to
+                sign-off state.
+              </p>
+            ) : null}
             <div className={styles.workspaceExportActions}>
               {canExport ? (
                 <a

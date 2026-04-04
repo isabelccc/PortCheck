@@ -19,6 +19,7 @@ type PageProps = {
 const reviewQueueWhere = or(
   eq(documentVersions.status, "in_review"),
   eq(documentVersions.status, "draft"),
+  eq(documentVersions.status, "rejected"),
 );
 
 export default async function ReviewsPage({ searchParams }: PageProps) {
@@ -87,8 +88,9 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
         </Link>
         <h1 className={styles.title}>Review queue</h1>
         <p className={styles.subtitle}>
-          Document versions in <strong>draft</strong> or{" "}
-          <strong>in_review</strong> (demo). Open required checklist items are
+          Document versions in <strong>draft</strong>,{" "}
+          <strong>in_review</strong>, or <strong>rejected</strong> (demo). Open
+          required checklist items are
           counted per version. Aligns with a simple SEC-style &ldquo;work in
           progress&rdquo; queue — not a production filing calendar.
         </p>
@@ -105,12 +107,14 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
           perPage={perPage}
           total={total}
           defaultPerPage={REVIEW_QUEUE_PAGE_SIZE}
-          zeroStateMessage="No versions in draft or in_review."
+          zeroStateMessage="No versions in draft, in_review, or rejected."
           navAriaLabel="Review queue pages"
         />
 
         {versions.length === 0 ? (
-          <p className={styles.empty}>No versions in draft or in_review.</p>
+          <p className={styles.empty}>
+            No versions in draft, in_review, or rejected.
+          </p>
         ) : (
           <>
             <div

@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import {
   auditEvents,
   db,
+  documentVersions,
   stepExecutions,
+  versionChecklistItems,
   workflowEdges,
   workflowNodes,
   workflowRuns,
 } from "@repo/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { validateWorkflowTransition } from "../../lib/workflow-rules-engine";
 import type { WorkflowEdgeLite, WorkflowStepLite } from "../../lib/workflow-rules-engine";
 import { canMutateWorkflow } from "../../lib/demo-role-constants";
@@ -92,6 +94,71 @@ function toStepLite(rows: StepRow[]): WorkflowStepLite[] {
   return rows.map((r) => ({ nodeId: r.nodeId, status: r.status }));
 }
 
+/**
+ * Final workflow approval is wired to the Filing QA gate: version must be
+ * `in_review` and every required checklist row must be complete.
+ */
+async function assertFinalApprovalQaGates(
+  runId: string,
+  nodeId: string,
+  nextStatus: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (nextStatus !== "completed") {
+    return { ok: true };
+  }
+
+  const [wfNode] = await db
+    .select({ nodeKey: workflowNodes.nodeKey })
+    .from(workflowNodes)
+    .where(eq(workflowNodes.id, nodeId))
+    .limit(1);
+  if (wfNode?.nodeKey !== "final_approval") {
+    return { ok: true };
+  }
+
+  const [run] = await db
+    .select({ documentVersionId: workflowRuns.documentVersionId })
+    .from(workflowRuns)
+    .where(eq(workflowRuns.id, runId))
+    .limit(1);
+  if (!run) {
+    return { ok: false, error: "Run not found." };
+  }
+
+  const [ver] = await db
+    .select({ status: documentVersions.status })
+    .from(documentVersions)
+    .where(eq(documentVersions.id, run.documentVersionId))
+    .limit(1);
+  if (ver?.status !== "in_review") {
+    return {
+      ok: false,
+      error:
+        "Final approval is blocked: the document version must be in_review. Submit it from the Filing QA workspace after clearing QA gates.",
+    };
+  }
+
+  const [openRow] = await db
+    .select({ n: count() })
+    .from(versionChecklistItems)
+    .where(
+      and(
+        eq(versionChecklistItems.documentVersionId, run.documentVersionId),
+        eq(versionChecklistItems.required, true),
+        isNull(versionChecklistItems.completedAt),
+      ),
+    );
+  const open = Number(openRow?.n ?? 0);
+  if (open > 0) {
+    return {
+      ok: false,
+      error: `Final approval is blocked: ${open} required QA checklist item(s) still open. Complete them in the Filing QA workspace.`,
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function updateStepStatus(
   runId: string,
   nodeId: string,
@@ -147,6 +214,11 @@ export async function updateStepStatus(
       error:
         "Approval completion requires an evidence note (comment) describing the attestation.",
     };
+  }
+
+  const gate = await assertFinalApprovalQaGates(runId, nodeId, nextStatus);
+  if (!gate.ok) {
+    return { ok: false, error: gate.error };
   }
 
   await commitStepStatusChange(runId, row, nextStatus, actor, comment);
@@ -245,6 +317,10 @@ export async function advanceWorkflowAutoWave(
       nextStatus: "completed",
     });
     if (!v.ok) {
+      continue;
+    }
+    const gate = await assertFinalApprovalQaGates(runId, row.nodeId, "completed");
+    if (!gate.ok) {
       continue;
     }
     const nt = nodeTypeById.get(row.nodeId);
