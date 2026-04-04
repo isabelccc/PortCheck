@@ -1,15 +1,25 @@
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import * as schema from "./schema.js";
+import * as schema from "./schema";
 
 export type AppDb = PostgresJsDatabase<typeof schema>;
 
-const url = process.env.DATABASE_URL;
-if (!url) {
-  throw new Error("DATABASE_URL is not set");
+/** Postgres connection string from the environment (set `DATABASE_URL` in monorepo root `.env`). */
+export function getDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL is not set");
+  }
+  return url;
 }
 
-const client = postgres(url, { max: 10 });
+const client = postgres(getDatabaseUrl(), { max: 10 });
 export const db = drizzle(client, { schema });
-export * from "./schema.js";
+
+/** Call from CLI scripts (e.g. seed) so Node can exit; Next.js keeps the process alive anyway. */
+export async function closeDb(): Promise<void> {
+  await client.end({ timeout: 5 });
+}
+
+export * from "./schema";
