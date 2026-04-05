@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { db, documentVersions, documents, funds, versionChecklistItems } from "@repo/db";
+import {
+  db,
+  documentVersions,
+  documents,
+  funds,
+  versionChecklistItems,
+  workflowRuns,
+  workflowTemplates,
+} from "@repo/db";
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   DocumentPagination,
@@ -80,26 +88,46 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     }
   }
 
+  const runRows = await db
+    .select({
+      run: workflowRuns,
+      template: workflowTemplates,
+      version: documentVersions,
+      document: documents,
+      fund: funds,
+    })
+    .from(workflowRuns)
+    .innerJoin(
+      workflowTemplates,
+      eq(workflowRuns.templateId, workflowTemplates.id),
+    )
+    .innerJoin(
+      documentVersions,
+      eq(workflowRuns.documentVersionId, documentVersions.id),
+    )
+    .innerJoin(documents, eq(documentVersions.documentId, documents.id))
+    .leftJoin(funds, eq(documents.fundId, funds.id))
+    .orderBy(desc(workflowRuns.createdAt))
+    .limit(50);
+
   return (
     <div className={styles.shell}>
       <main className={styles.inner}>
-        <Link href="/compliance" className={styles.back}>
-          ← Compliance
+        <Link href="/" className={styles.back}>
+          ← Home
         </Link>
-        <h1 className={styles.title}>Review queue</h1>
-        <p className={styles.subtitle}>
-          Document versions in <strong>draft</strong>,{" "}
-          <strong>in_review</strong>, or <strong>rejected</strong> (demo). Open
-          required checklist items are
-          counted per version. Aligns with a simple SEC-style &ldquo;work in
-          progress&rdquo; queue — not a production filing calendar.
-        </p>
-        <p className={styles.workflowPanelHint}>
-          Your role: <strong>{role}</strong> · set on{" "}
+        <h1 className={styles.display}>Workflow &amp; review</h1>
+        <p className={styles.subtitleTight}>
+          Role: <strong>{role}</strong>
+          {" · "}
           <Link href="/compliance" className={styles.inlineLink}>
-            Compliance
+            Change role
           </Link>
         </p>
+
+        <h2 id="review-queue" className={styles.pageSectionHeading}>
+          Review queue
+        </h2>
 
         <DocumentPagination
           basePath="/reviews"
@@ -107,62 +135,83 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
           perPage={perPage}
           total={total}
           defaultPerPage={REVIEW_QUEUE_PAGE_SIZE}
-          zeroStateMessage="No versions in draft, in_review, or rejected."
+          zeroStateMessage="No versions in queue."
           navAriaLabel="Review queue pages"
         />
 
         {versions.length === 0 ? (
-          <p className={styles.empty}>
-            No versions in draft, in_review, or rejected.
-          </p>
+          <p className={styles.empty}>No versions in draft, in review, or rejected.</p>
         ) : (
-          <>
-            <div
-              className={styles.sectionLabel}
-              style={{ marginTop: "1.25rem", marginBottom: "0.65rem" }}
+          <div className={styles.innerTableBleed}>
+            <table
+              className={styles.reviewQueueTable}
+              aria-label="Review queue"
             >
-              Queue listing
-            </div>
-            <div className={styles.innerTableBleed}>
-              <table
-                className={styles.reviewQueueTable}
-                aria-label="Queue listing"
-              >
-                <thead>
-                  <tr>
-                    <th>Document</th>
-                    <th>Version</th>
-                    <th>Status</th>
-                    <th>Fund</th>
-                    <th>Open required QA</th>
-                    <th></th>
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Version</th>
+                  <th>Status</th>
+                  <th>Fund</th>
+                  <th>Open QA</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {versions.map(({ v, d, f }) => (
+                  <tr key={v.id}>
+                    <td>{d.title}</td>
+                    <td>{v.version}</td>
+                    <td>{v.status.replaceAll("_", " ")}</td>
+                    <td>
+                      {f.name}
+                      {f.ticker ? ` (${f.ticker})` : ""}
+                    </td>
+                    <td>{openByVersion.get(v.id) ?? 0}</td>
+                    <td>
+                      <Link
+                        href={`/documents/${d.id}/versions/${v.id}`}
+                        className={styles.inlineLink}
+                      >
+                        Open
+                      </Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {versions.map(({ v, d, f }) => (
-                    <tr key={v.id}>
-                      <td>{d.title}</td>
-                      <td>{v.version}</td>
-                      <td>{v.status.replaceAll("_", " ")}</td>
-                      <td>
-                        {f.name}
-                        {f.ticker ? ` (${f.ticker})` : ""}
-                      </td>
-                      <td>{openByVersion.get(v.id) ?? 0}</td>
-                      <td>
-                        <Link
-                          href={`/documents/${d.id}/versions/${v.id}`}
-                          className={styles.inlineLink}
-                        >
-                          QA workspace
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <h2
+          id="workflow-runs"
+          className={`${styles.pageSectionHeading} ${styles.pageSectionHeadingSpaced}`}
+        >
+          Workflow runs
+        </h2>
+
+        {runRows.length === 0 ? (
+          <p className={styles.empty}>No workflow runs yet.</p>
+        ) : (
+          <div className={styles.cardList}>
+            {runRows.map(({ run, template, version, document, fund }) => (
+              <Link
+                key={run.id}
+                href={`/runs/${run.id}`}
+                className={styles.card}
+              >
+                <div className={styles.cardTitle}>{template.name}</div>
+                <div className={styles.cardMeta}>
+                  {document.title} · v{version.version}
+                  {fund?.name ? ` · ${fund.name}` : ""}
+                  {fund?.ticker ? ` (${fund.ticker})` : ""}
+                </div>
+                <div className={styles.cardMeta} style={{ marginTop: "0.35rem" }}>
+                  {run.status ?? "—"} · {new Date(run.createdAt).toLocaleString()}
+                </div>
+              </Link>
+            ))}
+          </div>
         )}
       </main>
     </div>

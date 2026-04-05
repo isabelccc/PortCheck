@@ -45,10 +45,7 @@ export default async function DocumentsIndexPage({ searchParams }: PageProps) {
           ← Funds
         </Link>
         <h1 className={styles.display}>Documents</h1>
-        <p className={styles.subtitle}>
-          All disclosure documents across funds (paginated). Open a row to view
-          version history.
-        </p>
+        <p className={styles.subtitleTight}>All documents across funds.</p>
         <DocumentPagination
           basePath="/documents"
           page={page}

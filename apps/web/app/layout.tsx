@@ -13,8 +13,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Disclosure DAG demo",
-  description: "ETF-style disclosure documents (demo)",
+  title: "PortCheck",
+  description: "Disclosure workflow demo",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <header className={styles.topBar}>
           <a href="/" className={styles.topBarBrand}>
-            disclosure-demo
+            PortCheck
           </a>
           <nav className={styles.topBarNav} aria-label="Main">
             <a href="/" className={styles.topBarLink}>
@@ -39,14 +39,19 @@ export default function RootLayout({
             <a href="/documents" className={styles.topBarLink}>
               Documents
             </a>
+            <a href="/reviews" className={styles.topBarLink}>
+              Workflow
+            </a>
             <a href="/compliance" className={styles.topBarLink}>
               Compliance
             </a>
+            <a href="/audit" className={styles.topBarLink}>
+              Audit
+            </a>
           </nav>
           <div className={styles.topBarRight}>
-            <span className={styles.topBarHint}>localhost:3000</span>
             <a href="/funds" className={styles.topBarCta}>
-              Open data
+              Browse funds
             </a>
           </div>
         </header>

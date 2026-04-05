@@ -225,6 +225,7 @@ export async function updateStepStatus(
 
   revalidatePath(`/runs/${runId}`);
   revalidatePath("/runs");
+  revalidatePath("/reviews");
   revalidatePath("/audit");
   return { ok: true };
 }

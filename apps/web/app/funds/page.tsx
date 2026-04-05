@@ -46,9 +46,7 @@ export default async function FundsPage({ searchParams }: PageProps) {
           ← Home
         </Link>
         <h1 className={styles.display}>Funds</h1>
-        <p className={styles.subtitle}>
-          Select a fund to view disclosure documents linked in Postgres.
-        </p>
+        <p className={styles.subtitleTight}>Open a fund to see its documents.</p>
         <DocumentPagination
           basePath="/funds"
           page={page}

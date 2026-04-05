@@ -227,6 +227,30 @@
   max-width: 40rem;
 }
 
+/** Shorter lead under page titles (merged / simplified layouts). */
+.subtitleTight {
+  font-size: var(--radio-p3-size);
+  line-height: var(--radio-p3-lh);
+  font-weight: 400;
+  color: var(--pilot-muted);
+  margin: -0.35rem 0 1.75rem;
+  max-width: 40rem;
+}
+
+.pageSectionHeading {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--pilot-text);
+  margin: 0 0 0.85rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--pilot-line);
+}
+
+.pageSectionHeadingSpaced {
+  margin-top: 2.5rem;
+}
+
 .back {
   display: inline-flex;
   align-items: center;

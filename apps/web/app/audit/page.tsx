@@ -100,19 +100,16 @@ export default async function AuditPage({ searchParams }: PageProps) {
   return (
     <div className={styles.shell}>
       <main className={styles.inner}>
-        <Link href="/compliance" className={styles.back}>
-          ← Compliance
+        <Link href="/" className={styles.back}>
+          ← Home
         </Link>
-        <h1 className={styles.display}>Audit trail</h1>
-        <p className={styles.subtitle}>
-          Append-only activity log with a cryptographic hash chain, DAG run links on each
-          row where applicable, and body-save diffs via the hover redline control — a
-          lightweight compliance-style audit (demo).
+        <h1 className={styles.display}>Audit</h1>
+        <p className={styles.subtitleTight}>
+          Append-only event log with hash chain verification.
         </p>
         {chainCheck.ok ? (
-          <p className={styles.paginationMeta} style={{ marginTop: "0.35rem" }}>
-            Tamper-evident hash chain OK (SHA-256, each row links to the previous
-            record hash).
+          <p className={styles.subtitleTight} style={{ marginTop: "-1rem", marginBottom: "1rem" }}>
+            Hash chain verified.
           </p>
         ) : (
           <p className={styles.workflowError} role="alert" style={{ marginTop: "0.35rem" }}>

@@ -104,10 +104,10 @@ export default async function WorkflowRunPage({ params }: PageProps) {
   return (
     <div className={styles.shell}>
       <main className={styles.inner}>
-        <Link href="/runs" className={styles.back}>
-          ← Runs
+        <Link href="/reviews" className={styles.back}>
+          ← Workflow
         </Link>
-        <h1 className={styles.title}>{row.template.name}</h1>
+        <h1 className={styles.display}>{row.template.name}</h1>
         <div className={styles.runPageToolbar}>
           <div className={styles.runPageToolbarId}>
             <span className={styles.runPageToolbarKicker}>Run</span>

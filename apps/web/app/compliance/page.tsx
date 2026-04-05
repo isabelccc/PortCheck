@@ -20,35 +20,28 @@ export default async function CompliancePage() {
         <Link href="/" className={styles.back}>
           ← Home
         </Link>
-        <h1 className={styles.title}>Compliance &amp; controls</h1>
-        <p className={styles.subtitle}>
-          Demo role + policies. The main screens are the three tiles below.
+        <h1 className={styles.display}>Compliance</h1>
+        <p className={styles.subtitleTight}>
+          Demo role and policy library. Use Workflow for runs and review queue.
         </p>
 
         <section className={styles.complianceOpsSection} aria-labelledby="ops-heading">
           <h2 id="ops-heading" className={styles.complianceOpsHeading}>
-            Operational views
+            Shortcuts
           </h2>
-          <nav className={styles.complianceOpsGrid} aria-label="Operational views">
-            <Link href="/runs" className={styles.complianceOpsCard}>
-              <p className={styles.complianceOpsCardKicker}>DAG + steps</p>
-              <p className={styles.complianceOpsCardTitle}>Workflow runs</p>
-              <p className={styles.complianceOpsCardDesc}>
-                React Flow DAG, step execution, final approval vs the linked version.
-              </p>
-            </Link>
+          <nav className={styles.complianceOpsGrid} aria-label="Shortcuts">
             <Link href="/reviews" className={styles.complianceOpsCard}>
-              <p className={styles.complianceOpsCardKicker}>In review</p>
-              <p className={styles.complianceOpsCardTitle}>Review queue</p>
+              <p className={styles.complianceOpsCardKicker}>Queue + DAG</p>
+              <p className={styles.complianceOpsCardTitle}>Workflow &amp; review</p>
               <p className={styles.complianceOpsCardDesc}>
-                Drafts and in-review versions with QA blockers and decisions.
+                Review queue and workflow runs in one place.
               </p>
             </Link>
             <Link href="/audit" className={styles.complianceOpsCard}>
-              <p className={styles.complianceOpsCardKicker}>Append-only</p>
+              <p className={styles.complianceOpsCardKicker}>Log</p>
               <p className={styles.complianceOpsCardTitle}>Audit trail</p>
               <p className={styles.complianceOpsCardDesc}>
-                Search events, diffs, and evidence — nothing is deleted.
+                Search and filter audit events.
               </p>
             </Link>
           </nav>
@@ -65,9 +58,9 @@ export default async function CompliancePage() {
             className={styles.workflowEvidenceTextarea}
             style={{ maxWidth: "12rem", minHeight: "unset", padding: "0.4rem" }}
           >
-            <option value="viewer">viewer — read-only</option>
-            <option value="reviewer">reviewer — checklist, workflow, export, reject</option>
-            <option value="admin">admin — + formal document approve (sign-off)</option>
+            <option value="viewer">Viewer</option>
+            <option value="reviewer">Reviewer</option>
+            <option value="admin">Admin</option>
           </select>
           <button type="submit" className={styles.workflowAutoRunBtn}>
             Save role

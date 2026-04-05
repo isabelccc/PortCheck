@@ -1,54 +1,41 @@
 import Link from "next/link";
 import styles from "./page.module.css";
 
-/** Read `DATABASE_URL` at request time (Vercel runtime), not only at build/SSG. */
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  /** Home does not query Postgres; other routes do — failures there are usually DB/schema/connect. */
   const missingDatabaseUrl = !process.env.DATABASE_URL?.trim();
 
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <p className={styles.kicker}>Disclosure control demo</p>
+        <p className={styles.kicker}>Demo</p>
         <h1 className={styles.headline}>
-          Fund disclosures,
+          Disclosure
           <br />
-          versioned in Postgres
+          workflow
         </h1>
         <p className={styles.lede}>
-          Walk through mock ETFs → documents → revision history. Built as a
-          portfolio slice for issuer-style disclosure ops—not production filing
-          software.
+          Versioned documents, review queue, and DAG workflow — backed by Postgres.
         </p>
 
         {missingDatabaseUrl ? (
           <p className={styles.deployWarn} role="status">
-            <strong>Deployment:</strong> <code>DATABASE_URL</code> is not set for this
-            environment. This page can still load, but <strong>Funds, Documents, Runs,
-            etc. need PostgreSQL</strong>. In Vercel → Project → Environment Variables,
-            add <code>DATABASE_URL</code> (Production / Preview), then redeploy. Run{" "}
-            <code>packages/db</code> migrations and seed against that same database.
-          </p>
-        ) : process.env.VERCEL ? (
-          <p className={styles.deployHint} role="note">
-            <code>DATABASE_URL</code> is set for this request. If Funds/Documents still fail, the
-            database may need <strong>migrations + seed</strong> (
-            <code>packages/db</code>), or check <strong>Vercel → Deployment → Runtime Logs</strong>{" "}
-            for the real error (SSL, auth, missing tables).
+            Set <code>DATABASE_URL</code> for this environment (e.g. in Vercel env vars),
+            then redeploy. Run <code>packages/db</code> migrate and seed against the same
+            database.
           </p>
         ) : null}
 
         <div className={styles.ctas}>
           <Link className={styles.primary} href="/funds">
-            View funds &amp; documents
-          </Link>
-          <Link className={styles.secondary} href="/compliance">
-            Compliance hub
+            Funds
           </Link>
           <Link className={styles.secondary} href="/reviews">
-            Review queue
+            Workflow &amp; review
+          </Link>
+          <Link className={styles.secondary} href="/compliance">
+            Compliance
           </Link>
         </div>
 
@@ -56,102 +43,32 @@ export default async function Home() {
           className={styles.projectFlow}
           aria-labelledby="project-flow-heading"
         >
-          <p className={styles.projectFlowTitle}>End-to-end</p>
           <h2 id="project-flow-heading" className={styles.projectFlowHeadline}>
-            How the demo runs
+            Overview
           </h2>
           <div className={styles.projectFlowTrack}>
             <Link href="/funds" className={styles.projectFlowCard}>
               <span className={styles.projectFlowNum}>01</span>
               <p className={styles.projectFlowStepTitle}>Funds &amp; documents</p>
-              <p className={styles.projectFlowStepBlurb}>
-                Pick a fund, open a document, browse version history.
-              </p>
             </Link>
             <Link href="/documents" className={styles.projectFlowCard}>
               <span className={styles.projectFlowNum}>02</span>
-              <p className={styles.projectFlowStepTitle}>Version workspace</p>
-              <p className={styles.projectFlowStepBlurb}>
-                Edit body, redlines, checklist, iXBRL stub, export — then submit for
-                review.
-              </p>
-            </Link>
-            <Link href="/runs" className={styles.projectFlowCard}>
-              <span className={styles.projectFlowNum}>03</span>
-              <p className={styles.projectFlowStepTitle}>Workflow DAG</p>
-              <p className={styles.projectFlowStepBlurb}>
-                Parallel steps on a template; rules engine + audit on each transition.
-              </p>
+              <p className={styles.projectFlowStepTitle}>Documents</p>
             </Link>
             <Link href="/reviews" className={styles.projectFlowCard}>
-              <span className={styles.projectFlowNum}>04</span>
-              <p className={styles.projectFlowStepTitle}>Review &amp; sign-off</p>
-              <p className={styles.projectFlowStepBlurb}>
-                Queue for in-review versions; admin approval when gates clear.
-              </p>
+              <span className={styles.projectFlowNum}>03</span>
+              <p className={styles.projectFlowStepTitle}>Workflow &amp; review</p>
             </Link>
             <Link href="/audit" className={styles.projectFlowCard}>
-              <span className={styles.projectFlowNum}>05</span>
-              <p className={styles.projectFlowStepTitle}>Audit trail</p>
-              <p className={styles.projectFlowStepBlurb}>
-                Immutable log: search, filters, and text diffs for evidence.
-              </p>
+              <span className={styles.projectFlowNum}>04</span>
+              <p className={styles.projectFlowStepTitle}>Audit</p>
             </Link>
           </div>
         </section>
 
-        <ul className={styles.bullets} aria-label="What ships today">
-          <li>
-            <strong>Data</strong> —{" "}
-            <code>document_versions</code> with optional parent lineage; roles in a
-            cookie.
-          </li>
-          <li>
-            <strong>Workflow</strong> — React Flow +{" "}
-            <code>step_executions</code>; append-only <code>audit_events</code>.
-          </li>
-          <li>
-            <strong>QA workspace</strong> — redlines, checklist gates, demo iXBRL
-            validation, HTML export stub (not EDGAR Live).
-          </li>
-          <li>
-            <strong>Stack</strong> — Next.js 16, Turborepo, Drizzle, Postgres via{" "}
-            <code>@repo/db</code>.
-          </li>
-        </ul>
-
-        <div className={styles.chips} aria-label="Tech stack">
-          <span className={styles.chip}>TypeScript</span>
-          <span className={styles.chip}>Next.js 16</span>
-          <span className={styles.chip}>Drizzle</span>
-          <span className={styles.chip}>Postgres</span>
-          <span className={styles.chip}>Turborepo</span>
-        </div>
-
         <p className={styles.disclaimer}>
-          Prototype for learning and interviews. Does not submit to EDGAR or
-          replace legal/compliance review.
+          Prototype only — not for production filing.
         </p>
-
-        <section className={styles.howto} id="run" aria-labelledby="run-heading">
-          <h2 id="run-heading" className={styles.howtoTitle}>
-            Run locally
-          </h2>
-          <ol className={styles.howtoSteps}>
-            <li>
-              Set <code>DATABASE_URL</code> in the monorepo root{" "}
-              <code>.env</code>.
-            </li>
-            <li>
-              <code>cd packages/db</code> → <code>npx drizzle-kit migrate</code>{" "}
-              → <code>npm run db:seed</code>
-            </li>
-            <li>
-              From repo root: <code>npm run dev:web</code> → open{" "}
-              <code>localhost:3000</code>
-            </li>
-          </ol>
-        </section>
       </main>
 
       <footer className={styles.footer}>
@@ -159,7 +76,9 @@ export default async function Home() {
         <span className={styles.footerSep}>·</span>
         <Link href="/documents">Documents</Link>
         <span className={styles.footerSep}>·</span>
-        <Link href="/compliance">Compliance</Link>
+        <Link href="/reviews">Workflow</Link>
+        <span className={styles.footerSep}>·</span>
+        <Link href="/audit">Audit</Link>
         <span className={styles.footerSep}>·</span>
         <span className={styles.footerMeta}>PortCheck</span>
       </footer>
