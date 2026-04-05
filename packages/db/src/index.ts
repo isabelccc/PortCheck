@@ -18,12 +18,27 @@ export function getDatabaseUrl(): string {
   return url;
 }
 
+function postgresOptions(url: string): NonNullable<Parameters<typeof postgres>[1]> {
+  const lower = url.toLowerCase();
+  const isLocal =
+    lower.includes("localhost") ||
+    lower.includes("127.0.0.1");
+  const sslDisabled = lower.includes("sslmode=disable");
+  /** Hosted Postgres (Neon, RDS, etc.) expects TLS; local Docker usually does not. */
+  const useSsl = !isLocal && !sslDisabled;
+  return {
+    max: process.env.VERCEL ? 1 : 10,
+    ...(useSsl ? { ssl: "require" as const } : {}),
+  };
+}
+
 let pgClient: ReturnType<typeof postgres> | undefined;
 let dbInstance: AppDb | undefined;
 
 function ensureDb(): AppDb {
   if (dbInstance) return dbInstance;
-  pgClient = postgres(getDatabaseUrl(), { max: 10 });
+  const url = getDatabaseUrl();
+  pgClient = postgres(url, postgresOptions(url));
   dbInstance = drizzle(pgClient, { schema });
   return dbInstance;
 }
