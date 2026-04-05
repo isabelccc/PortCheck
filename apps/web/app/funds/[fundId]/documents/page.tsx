@@ -95,10 +95,10 @@ export default async function FundDocumentsPage({
                 href={`/documents/${d.id}`}
                 className={styles.card}
               >
-                <div className={styles.slugRow}>
-                  <span className={styles.slug}>{d.slug}</span>
-                </div>
                 <div className={styles.cardTitle}>{d.title}</div>
+                <p className={styles.cardMetaLine}>
+                  <span className={styles.cardMetaSlug}>{d.slug}</span>
+                </p>
               </Link>
             ))}
           </div>

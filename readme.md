@@ -1,4 +1,4 @@
-# Disclosure DAG demo
+# PortCheck — disclosure control plane (reference build)
 
 **Versioned disclosure documents · DAG-based approvals · append-only audit trail · QA gating**
 
@@ -6,12 +6,33 @@ Monorepo: **Next.js 16** (App Router, Server Actions) + **PostgreSQL** + **Drizz
 
 ---
 
-## Server-enforced approval & QA gates (what to show in interviews)
+## Business narrative (why this exists)
+
+**Problem.** Fund and ETF operators need a **repeatable operating model** for disclosure content: who may edit, who must review, what evidence is required before a version is “ready,” and how leadership proves **what happened** months later (exams, internal audit, or litigation support).
+
+**What PortCheck demonstrates.**
+
+| Business outcome | How the app supports it |
+|------------------|-------------------------|
+| **Policy-aligned process** | Required checklist items, evidence notes, and status gates tied to document versions — not ad-hoc email threads. |
+| **Segregation of duties (concept)** | Demo roles (**viewer** / **reviewer** / **admin**) model read vs prepare vs sign-off; the same checks are **re-applied on the server** so the UI cannot bypass them. |
+| **Parallel workstreams** | DAG workflow runs represent **concurrent** legal / risk / product tracks that must converge before final approval. |
+| **Defensible history** | Append-only `audit_events` with optional **integrity chaining** (hash per record) to narrate **tamper-evidence** (demo scope — not a certified control). |
+| **Exam readiness (story)** | Searchable audit log + version lineage (`parent_version_id`) support the “show the trail” conversation with compliance and internal audit. |
+
+**Personas (typical conversation).** **Product / disclosure owner** maintains drafts and runs QA; **reviewer** clears checklist and advances workflow steps; **admin** performs formal approve with attestation; **second line / audit** consumes the log and integrity checks.
+
+**Scope honesty.** Seed policies and export stubs are **not** submission-grade. The value here is the **control design** and **server-side enforcement**, not a filing vendor replacement.
+
+---
+
+## Server-enforced approval & QA gates (control matrix → code)
 
 | Control | Where it’s enforced |
 |--------|----------------------|
 | **Required checklist** before **Submit for review** | `submitVersionForApproval` in `compliance-workspace.ts` — rejects if any open required rows. |
-| **Required checklist + `in_review`** before completing workflow **final approval** | `workflow.ts` — `assertFinalApprovalQaGates` on step transition to `completed`. |
+| **System validation (automatic)** after checklist — min length, structure, slug-specific fee % sanity, optional `PORTCHECK_DEMO_BPS` | `evaluateSystemValidation` in `lib/system-validation.ts`; enforced in `submitVersionForApproval`, `approveDocumentVersion`, and workflow `assertFinalApprovalQaGates`. |
+| **Required checklist + `in_review` + system validation** before completing workflow **final approval** | `workflow.ts` — `assertFinalApprovalQaGates` on step transition to `completed`. |
 | **Evidence note length** when completing required checklist items | `toggleChecklistItem` — minimum length for audit trail. |
 | **Formal document approve** (`in_review` → `approved`) | `approveDocumentVersion` — **admin** role; requires closed required QA + completed workflow final (if a run exists); attestation text; **`version_approved`** audit row. |
 | **Reject / reopen** | `rejectDocumentVersion` / `reopenRejectedVersion` — rationale + audit. |
@@ -22,12 +43,12 @@ Role model is a **cookie** (`viewer` / `reviewer` / `admin`) for the demo, but *
 
 ## Features (product map)
 
-- **Funds & documents** — Funds, documents, paginated **document versions** (`draft` / `in_review` / `approved` / `rejected`), optional **parent** or **previous-revision** redlines.
-- **Workflow runs** — Run bound to a **document version**; `step_executions` + **React Flow**; DAG rules in **`workflow-rules-engine.ts`** and **`actions/workflow.ts`**.
-- **Audit trail** — `/audit` — paginated, filterable `audit_events` (run, document version id, entity type).
-- **Filing QA workspace** — Per-version: content, redline, **grouped checklist**, iXBRL drafts (validator), export. **Process control** surfaces gate status vs linked workflow run.
-- **Compliance hub** — Policy library + demo role switcher.
-- **Review queue** — `draft` / `in_review` / `rejected` with open required-item counts.
+- **Funds & documents** — Legal entity / product structure; paginated **document versions** with lifecycle states (`draft` / `in_review` / `approved` / `rejected`); optional **parent** or **previous-revision** redlines for **change control** storytelling.
+- **Workflow runs** — Run bound to a **document version**; `step_executions` + **React Flow**; DAG rules in **`workflow-rules-engine.ts`** and **`actions/workflow.ts`** — models **parallel approvals** and join points.
+- **Audit trail** — `/audit` — paginated, filterable `audit_events` (actor, action, entity, payload) for **operational and second-line** review.
+- **Filing QA workspace** — Per-version: content, redline, **grouped checklist**, iXBRL drafts (validator), export stub — **readiness** before external filing channels.
+- **Compliance hub** — Policy library + **role** switcher (stand-in for IAM / entitlements).
+- **Review queue** — Operational triage: `draft` / `in_review` / `rejected` with **open required-item** counts.
 
 ## Stack
 
@@ -77,7 +98,19 @@ From **this monorepo root** (where root `package.json` lives):
 |--------|-------------|
 | `npm run dev:web` | Dev server for `apps/web` (see root `package.json`) |
 | `npm run build` | Often run per app, e.g. `cd apps/web && npm run build` |
+| `npm test` | **Vitest** — `apps/web/tests/*.test.ts` (DAG rules, system validation) + `packages/db/tests/*.test.ts` (audit hash) |
+| `cd apps/web && npm run test:watch` | Re-run web tests on change |
 | `cd packages/db && npm run db:studio` | Drizzle Studio (inspect DB) |
+
+## Testing (invariants)
+
+Automated checks focus on **pure, security-relevant logic** without a live browser or Postgres:
+
+- **`validateWorkflowTransition`** — illegal status changes, predecessor gating from `pending` / `blocked`, terminal states.
+- **`computeAuditRecordHash`** — deterministic SHA-256, chain linkage to previous record hash, stable payload key ordering.
+- **`evaluateSystemValidation`** — document length / structure, fee-line percentage band (demo), optional demo BPS line (`apps/web/tests/system-validation.test.ts`).
+
+Server Actions and DB transactions are still best extended with **integration tests** (Postgres test container or `DATABASE_URL` to a throwaway DB) when you want end-to-end gate coverage.
 
 ## Repository layout
 

@@ -188,15 +188,15 @@
 }
 
 /*
- * Break out past .inner (52rem) so wide data tables use the viewport.
- * Uses margins only (no transform) so descendants keep viewport-fixed positioning
- * (e.g. audit body-diff tooltip).
+ * Wide tables inside .inner: keep left/right edges aligned with headings & pagination
+ * (no viewport “bleed”). Horizontal scroll on small screens.
  */
-.innerTableBleed {
-  width: min(calc(100vw - 3rem), 50rem);
-  max-width: min(calc(100vw - 3rem), 70rem);
-  margin-left: calc(50% - 50vw + 18rem);
-  margin-right: calc(50% - 50vw + 1.5rem);
+.innerTableAlign {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .display {
@@ -285,8 +285,13 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  border: 1px solid var(--pilot-line);
-  border-radius: 4px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
   overflow: hidden;
   background: var(--pilot-surface);
 }
@@ -465,28 +470,446 @@
   color: #b71c1c;
 }
 
-.workspaceQaBarTrack {
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  margin-top: 0.35rem;
-}
-
-.workspaceQaBarFill {
-  height: 100%;
-  background: var(--pilot-accent);
-  border-radius: 3px;
-  transition: width 0.2s ease;
-}
-
 .workspaceQaCategoryRow {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
   font-size: var(--radio-p3-size);
   color: var(--pilot-muted);
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+/* Filing QA workspace: entry load stripe 0→100% on mount (portaled to body) */
+.workspaceEntryLoadBarWrap {
+  position: fixed;
+  top: var(--topbar-height);
+  left: 0;
+  right: 0;
+  z-index: 2147483000;
+  height: 6px;
+  background: color-mix(in srgb, var(--pilot-line) 45%, var(--pilot-surface));
+  border-bottom: 2px solid var(--pilot-text);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--pilot-text) 12%, transparent);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+
+.workspaceEntryLoadBarWrap[data-fade="true"] {
+  opacity: 0;
+}
+
+.workspaceEntryLoadBarFill {
+  height: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pilot-accent) 78%, #ffffff) 0%,
+    var(--pilot-accent) 45%,
+    color-mix(in srgb, var(--pilot-accent) 92%, #b8cf4a) 100%
+  );
+  border-radius: 0 2px 2px 0;
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--pilot-accent) 65%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
+  border-right: 2px solid var(--pilot-text);
+  transition: width 0.03s linear;
+  min-width: 0;
+}
+
+/* Server / streaming phase — visible before client JS hydrates */
+.workspaceRouteLoadingBar {
+  position: fixed;
+  top: var(--topbar-height);
+  left: 0;
+  right: 0;
+  z-index: 2147483000;
+  height: 6px;
+  background: color-mix(in srgb, var(--pilot-line) 45%, var(--pilot-surface));
+  border-bottom: 2px solid var(--pilot-text);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.workspaceRouteLoadingBarFill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pilot-accent) 70%, #fff) 0%,
+    var(--pilot-accent) 50%,
+    color-mix(in srgb, var(--pilot-accent) 88%, #b8cf4a) 100%
+  );
+  border-right: 2px solid var(--pilot-text);
+  animation: workspaceRouteLoadSweep 1.35s cubic-bezier(0.33, 1, 0.68, 1) infinite
+    alternate;
+}
+
+@keyframes workspaceRouteLoadSweep {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* System check — progress strip + bar + legend (Filing QA workspace) */
+.workspaceSysCheckCard {
+  margin-top: 0.85rem;
+  padding: 0.95rem 1rem 1rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--pilot-text) 18%, transparent);
+  background: var(--pilot-surface);
+  transition:
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.workspaceSysCheckCardComplete {
+  border-color: color-mix(in srgb, var(--pilot-success-green) 55%, var(--pilot-text));
+  box-shadow:
+    3px 3px 0 color-mix(in srgb, var(--pilot-success-green) 42%, var(--pilot-text)),
+    0 0 0 1px color-mix(in srgb, var(--pilot-success-green) 32%, transparent);
+}
+
+.workspaceSysCheckCardGatesPending:not(.workspaceSysCheckCardComplete) {
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--pilot-text));
+}
+
+.workspaceSysCheckTopBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.workspaceSysCheckKicker {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--pilot-line);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--pilot-bg) 70%, var(--pilot-surface));
+}
+
+.workspaceSysCheckSummaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.65rem;
+}
+
+.workspaceSysCheckSummaryLeft {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.workspaceSysCheckPctLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+}
+
+.workspaceSysCheckPct {
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--pilot-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.workspaceSysCheckStatusOk {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--pilot-text);
+  letter-spacing: -0.02em;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--pilot-text);
+  background: var(--pilot-accent);
+}
+
+.workspaceSysCheckStatusWarn {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #c2410c;
+  letter-spacing: -0.02em;
+}
+
+.workspaceSysCheckStatusNeutral {
+  font-size: 0.875rem;
+  color: var(--pilot-muted);
+}
+
+.workspaceSysCheckFinalLine {
+  margin: 0.35rem 0 0;
+}
+
+.workspaceSysCheckFinalTag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pilot-text);
+  letter-spacing: -0.01em;
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--pilot-line);
+  background: color-mix(in srgb, var(--pilot-accent) 22%, var(--pilot-surface));
+}
+
+.workspaceSysCheckCounter {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.workspaceSysCheckCounterBig {
+  display: block;
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--pilot-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.workspaceSysCheckCounterSmall {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+}
+
+.workspaceSysCheckBarTrack {
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pilot-line) 65%, var(--pilot-surface));
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 12%, var(--pilot-line));
+  overflow: hidden;
+  margin-bottom: 0.55rem;
+}
+
+.workspaceSysCheckBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pilot-accent) 75%, #ffffff) 0%,
+    var(--pilot-accent) 40%,
+    color-mix(in srgb, var(--pilot-accent) 88%, #c4d85c) 100%
+  );
+  border-right: 1px solid color-mix(in srgb, var(--pilot-text) 18%, transparent);
+  /* Width: rAF; fill color crossfades when card gains “complete” */
+  transition:
+    width 0.04s linear,
+    background 0.55s ease,
+    border-color 0.55s ease;
+  min-width: 0;
+}
+
+.workspaceSysCheckBarFillComplete {
+  animation: workspaceSysCheckBarCelebrate 0.85s ease-out;
+}
+
+@keyframes workspaceSysCheckBarCelebrate {
+  0% {
+    filter: brightness(1);
+    box-shadow: none;
+  }
+  35% {
+    filter: brightness(1.05);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--pilot-success-green) 55%, transparent);
+  }
+  100% {
+    filter: brightness(1);
+    box-shadow: none;
+  }
+}
+
+/* After completion: switch bar + accents from chartreuse → success green (#62c46e) */
+.workspaceSysCheckCardComplete .workspaceSysCheckBarFill {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pilot-success-green) 82%, #ffffff) 0%,
+    var(--pilot-success-green) 45%,
+    color-mix(in srgb, var(--pilot-success-green) 78%, #3d9a4a) 100%
+  );
+  border-right: 2px solid color-mix(in srgb, var(--pilot-text) 28%, var(--pilot-success-green));
+}
+
+.workspaceSysCheckCardComplete .workspaceSysCheckStatusOk {
+  background: var(--pilot-success-green);
+  color: var(--pilot-text);
+  border-color: var(--pilot-text);
+}
+
+.workspaceSysCheckCardComplete .workspaceSysCheckFinalTag {
+  background: color-mix(in srgb, var(--pilot-success-green) 22%, var(--pilot-surface));
+  border-color: color-mix(in srgb, var(--pilot-success-green) 45%, var(--pilot-line));
+}
+
+.workspaceSysCheckCardComplete .workspaceSysCheckDotDone,
+.workspaceSysCheckCardComplete .workspaceSysCheckRowDotOk {
+  background: var(--pilot-success-green);
+}
+
+.workspaceSysCheckCardComplete .workspaceSystemValidationBadgeOk {
+  background: var(--pilot-success-green);
+  color: var(--pilot-text);
+}
+
+.workspaceSysCheckCardComplete .workspaceSystemValidationItemOk {
+  border-color: color-mix(in srgb, var(--pilot-success-green) 48%, var(--pilot-line));
+  background: color-mix(in srgb, var(--pilot-success-green) 12%, var(--pilot-surface));
+}
+
+.workspaceSysCheckLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.1rem;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+}
+
+.workspaceSysCheckLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.workspaceSysCheckDotDone,
+.workspaceSysCheckDotRunning,
+.workspaceSysCheckDotPending,
+.workspaceSysCheckDotBlocked {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid var(--pilot-text);
+  flex-shrink: 0;
+}
+
+.workspaceSysCheckDotDone {
+  background: var(--pilot-accent);
+}
+
+.workspaceSysCheckDotRunning {
+  background: #eab308;
+}
+
+.workspaceSysCheckDotPending {
+  background: #f5f5f5;
+}
+
+.workspaceSysCheckDotBlocked {
+  background: #ea580c;
+}
+
+.workspaceSysCheckLegendHint {
+  margin: 0 0 0.15rem;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--pilot-muted);
+  letter-spacing: -0.01em;
+}
+
+.workspaceSysCheckRowDotOk,
+.workspaceSysCheckRowDotBlocked {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--pilot-text);
+  flex-shrink: 0;
+  margin-top: 0.28rem;
+}
+
+.workspaceSysCheckRowDotOk {
+  background: var(--pilot-accent);
+}
+
+.workspaceSysCheckRowDotBlocked {
+  background: #ea580c;
+}
+
+.workspaceSystemValidationBadgeOk,
+.workspaceSystemValidationBadgeBad {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--pilot-text);
+}
+
+.workspaceSystemValidationBadgeOk {
+  background: var(--pilot-accent);
+}
+
+.workspaceSystemValidationBadgeBad {
+  background: color-mix(in srgb, #f5a623 22%, var(--pilot-surface));
+}
+
+.workspaceSystemValidationList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.workspaceSystemValidationItemOk,
+.workspaceSystemValidationItemBad {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--pilot-line);
+  background: color-mix(in srgb, var(--pilot-bg) 40%, transparent);
+}
+
+.workspaceSystemValidationItemOk {
+  color: var(--pilot-text);
+  border-color: color-mix(in srgb, var(--pilot-accent) 42%, var(--pilot-line));
+  background: color-mix(in srgb, var(--pilot-accent) 12%, var(--pilot-surface));
+}
+
+.workspaceSystemValidationItemBad {
+  color: var(--pilot-text);
+  border-color: color-mix(in srgb, #ea580c 40%, var(--pilot-line));
+  background: color-mix(in srgb, #ea580c 6%, var(--pilot-surface));
+}
+
+.workspaceSystemValidationItemLabel {
+  font-weight: 600;
+}
+
+.workspaceSystemValidationItemDetail {
+  font-weight: 400;
+  color: var(--pilot-muted);
 }
 
 .workspaceGatesCard {
@@ -779,6 +1202,19 @@
   text-decoration-color: var(--pilot-text);
 }
 
+/** Data-grid row actions: quiet underline, accent on hover (vs. strong accent default). */
+.tableActionLink {
+  color: var(--pilot-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--pilot-line);
+}
+
+.tableActionLink:hover {
+  text-decoration-color: var(--pilot-accent);
+}
+
 .parentMeta {
   padding: 0.35rem 1.15rem 0;
   font-size: var(--radio-p3-size);
@@ -789,6 +1225,31 @@
 
 .slugRow {
   margin-bottom: 0.35rem;
+}
+
+/** One line under card title (e.g. slug + fund) — no pill chrome. */
+.cardMetaLine {
+  margin: 0.25rem 0 0;
+  font-size: var(--radio-p3-size);
+  line-height: var(--radio-p3-lh);
+  color: var(--pilot-muted);
+  letter-spacing: -0.01em;
+}
+
+.cardMetaLine code,
+.cardMetaLine .cardMetaSlug {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: var(--pilot-text);
+}
+
+/** Secondary line inside fund cards (sponsor name). */
+.cardSubline {
+  margin: 0.35rem 0 0;
+  font-size: var(--radio-p3-size);
+  line-height: var(--radio-p3-lh);
+  color: var(--pilot-muted);
+  letter-spacing: -0.01em;
 }
 
 .contextLine {
@@ -1696,23 +2157,19 @@
   color: var(--pilot-muted);
 }
 
-/* Matches .sectionLabel: pilot-surface frame, pilot-muted uppercase headers */
+/* Framed by .reviewQueueTableWrap — same shell pattern as .auditTableWrap + .auditTable */
 .reviewQueueTable {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--radio-p3-size);
-  margin-top: 0;
-  border: 1px solid var(--pilot-text);
-  border-radius: var(--pilot-brutal-radius);
-  box-shadow: var(--pilot-brutal-shadow);
-  overflow: hidden;
-  background: var(--pilot-surface);
+  margin: 0;
+  background: transparent;
 }
 
 .reviewQueueTable th,
 .reviewQueueTable td {
   border: 1px solid var(--pilot-text);
-  padding: 0.55rem 0.65rem;
+  padding: 0.65rem 0.85rem;
   text-align: left;
   vertical-align: top;
 }
@@ -1721,14 +2178,13 @@
   font-size: 0.6875rem;
   line-height: 1.2;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--pilot-muted);
-  background: var(--pilot-surface);
+  background: var(--pilot-bg);
 }
 
 .reviewQueueTable tbody td {
-  background: rgba(255, 255, 255, 0.72);
   color: var(--pilot-text);
   letter-spacing: -0.01em;
 }
@@ -1743,6 +2199,109 @@
 .reviewQueueTable td:nth-child(3) {
   min-width: 8rem;
   white-space: nowrap;
+}
+
+/** Workflow runs: calm list (not the brutal data grid used for the review queue). */
+.workflowRunsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.workflowRunCard {
+  display: block;
+  padding: 1rem 1.15rem 0.95rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: 8px;
+  background: var(--pilot-surface);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--pilot-text) 6%, transparent);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.workflowRunCard:hover {
+  border-color: var(--pilot-text);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pilot-text) 8%, transparent);
+  background: color-mix(in srgb, var(--pilot-surface) 92%, #fff);
+}
+
+.workflowRunCard:focus-visible {
+  outline: 2px solid var(--pilot-accent);
+  outline-offset: 2px;
+}
+
+.workflowRunCardTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.workflowRunCardTitle {
+  font-weight: 700;
+  font-size: var(--radio-p1-size);
+  line-height: var(--radio-p1-lh);
+  letter-spacing: -0.02em;
+  color: var(--pilot-text);
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.workflowRunCardStatus {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+  white-space: nowrap;
+}
+
+.workflowRunCardMeta {
+  margin: 0 0 0.65rem;
+  font-size: var(--radio-p3-size);
+  line-height: var(--radio-p3-lh);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  color: var(--pilot-muted);
+  letter-spacing: -0.01em;
+}
+
+.workflowRunCardBottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pilot-line);
+}
+
+.workflowRunCardWhen {
+  font-size: 0.8125rem;
+  color: var(--pilot-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.workflowRunCardCta {
+  font-size: var(--radio-p3-size);
+  font-weight: 600;
+  color: var(--pilot-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--pilot-line);
+}
+
+.workflowRunCard:hover .workflowRunCardCta {
+  text-decoration-color: var(--pilot-accent);
 }
 
 .workflowStepList {
@@ -1888,7 +2447,8 @@
   color: var(--pilot-text);
 }
 
-.auditTableWrap {
+.auditTableWrap,
+.reviewQueueTableWrap {
   overflow-x: auto;
   border: 1px solid var(--pilot-text);
   border-radius: var(--pilot-brutal-radius);

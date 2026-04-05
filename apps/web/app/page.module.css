@@ -61,6 +61,33 @@
   max-width: 38rem;
 }
 
+.businessOutcomes {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 1.1rem 1.2rem;
+  max-width: 38rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  background: var(--pilot-surface);
+  box-shadow: var(--pilot-brutal-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.businessOutcomes li {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+  color: var(--pilot-text);
+}
+
+.businessOutcomes strong {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 .projectFlow {
   margin-top: 0.75rem;
   padding: 1.25rem 1.2rem 1.35rem;
@@ -393,6 +420,176 @@ a.secondary {
   }
 }
 
+/* —— Home: flow chart + tech highlights —— */
+.flowSection {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 1.35rem 1.25rem 1.4rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: 6px;
+  background: var(--pilot-surface);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--pilot-text) 14%, transparent);
+}
+
+.flowSectionTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.4rem;
+  color: var(--pilot-text);
+}
+
+.flowSectionIntro {
+  margin: 0 0 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--pilot-muted);
+  max-width: 36rem;
+}
+
+.flowChart {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.flowStep {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
+.flowStepNum {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 2px solid var(--pilot-text);
+  background: var(--pilot-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  line-height: 1;
+  color: var(--pilot-text);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 25%, transparent);
+}
+
+.flowStepBody {
+  padding-bottom: 0.15rem;
+}
+
+.flowStepTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.flowStepTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.flowTechTag {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--pilot-text);
+  background: color-mix(in srgb, var(--pilot-bg) 70%, var(--pilot-surface));
+  color: var(--pilot-text);
+}
+
+.flowStepDesc {
+  margin: 0 0 0.45rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--pilot-muted);
+}
+
+.flowStepDesc code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  border: 1px solid var(--pilot-line);
+  background: var(--pilot-bg);
+  color: var(--pilot-text);
+}
+
+.flowStepLink {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--pilot-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.flowStepLink:hover {
+  text-decoration-color: var(--pilot-accent);
+}
+
+.flowStepHighlight {
+  margin: 0 -0.35rem;
+  padding: 0.65rem 0.65rem 0.65rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--pilot-text);
+  background: color-mix(in srgb, var(--pilot-accent) 18%, var(--pilot-surface));
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
+}
+
+.flowStepHighlight .flowStepNum {
+  background: var(--pilot-surface);
+}
+
+.flowConnector {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.flowConnectorLine {
+  grid-column: 1;
+  width: 2px;
+  height: 1.35rem;
+  margin: 0 auto;
+  background: var(--pilot-text);
+  border-radius: 1px;
+  opacity: 0.55;
+}
+
+.flowTechStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--pilot-line);
+}
+
+.flowTechPill {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 0.4rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid var(--pilot-text);
+  background: var(--pilot-accent);
+  color: var(--pilot-text);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 18%, transparent);
+}
+
 @media (max-width: 600px) {
   .page {
     padding: 36px 20px 28px;
@@ -408,5 +605,24 @@ a.secondary {
 
   .ctas a {
     width: 100%;
+  }
+
+  .flowSection {
+    padding: 1.1rem 1rem 1.15rem;
+  }
+
+  .flowStep {
+    grid-template-columns: 2.35rem minmax(0, 1fr);
+    gap: 0.5rem 0.65rem;
+  }
+
+  .flowStepNum {
+    width: 2.15rem;
+    height: 2.15rem;
+    font-size: 0.8125rem;
+  }
+
+  .flowConnector {
+    grid-template-columns: 2.35rem minmax(0, 1fr);
   }
 }

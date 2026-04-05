@@ -24,6 +24,7 @@ import {
   purgeWorkflowRunsForVersion,
 } from "../../lib/workflow-run-for-version";
 import { getVersionApprovalReadiness } from "../../lib/version-approval-readiness";
+import { loadSystemValidationForVersion } from "../../lib/version-system-validation";
 
 const ROLE_COOKIE = "demo_role";
 
@@ -339,6 +340,17 @@ export async function submitVersionForApproval(input: {
     };
   }
 
+  const systemValidation = await loadSystemValidationForVersion(input.versionId);
+  if (systemValidation && !systemValidation.ok) {
+    const failed = systemValidation.checks
+      .filter((c) => !c.ok)
+      .map((c) => (c.detail ? `${c.label}: ${c.detail}` : c.label));
+    return {
+      ok: false,
+      error: `System validation failed — ${failed.join(" · ")}`,
+    };
+  }
+
   const actor = input.actorId?.trim() || "reviewer@demo.local";
 
   /** Legacy rows: already in_review but no workflow run — create run + steps only. */
@@ -525,6 +537,17 @@ export async function approveDocumentVersion(input: {
     return {
       ok: false,
       error: `Approval blocked: complete workflow step “${readiness.finalApprovalLabel ?? "Final approval"}” on the linked run before document sign-off.`,
+    };
+  }
+
+  const systemValidation = await loadSystemValidationForVersion(input.versionId);
+  if (systemValidation && !systemValidation.ok) {
+    const failed = systemValidation.checks
+      .filter((c) => !c.ok)
+      .map((c) => (c.detail ? `${c.label}: ${c.detail}` : c.label));
+    return {
+      ok: false,
+      error: `Approval blocked: system validation — ${failed.join(" · ")}`,
     };
   }
 

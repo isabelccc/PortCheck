@@ -142,19 +142,21 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
         {versions.length === 0 ? (
           <p className={styles.empty}>No versions in draft, in review, or rejected.</p>
         ) : (
-          <div className={styles.innerTableBleed}>
+          <div
+            className={`${styles.innerTableAlign} ${styles.reviewQueueTableWrap}`}
+          >
             <table
               className={styles.reviewQueueTable}
               aria-label="Review queue"
             >
               <thead>
                 <tr>
-                  <th>Document</th>
-                  <th>Version</th>
-                  <th>Status</th>
-                  <th>Fund</th>
-                  <th>Open QA</th>
-                  <th></th>
+                  <th scope="col">Document</th>
+                  <th scope="col">Version</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Fund</th>
+                  <th scope="col">Open QA</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,7 +173,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
                     <td>
                       <Link
                         href={`/documents/${d.id}/versions/${v.id}`}
-                        className={styles.inlineLink}
+                        className={styles.tableActionLink}
                       >
                         Open
                       </Link>
@@ -193,24 +195,47 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
         {runRows.length === 0 ? (
           <p className={styles.empty}>No workflow runs yet.</p>
         ) : (
-          <div className={styles.cardList}>
-            {runRows.map(({ run, template, version, document, fund }) => (
-              <Link
-                key={run.id}
-                href={`/runs/${run.id}`}
-                className={styles.card}
-              >
-                <div className={styles.cardTitle}>{template.name}</div>
-                <div className={styles.cardMeta}>
-                  {document.title} · v{version.version}
-                  {fund?.name ? ` · ${fund.name}` : ""}
-                  {fund?.ticker ? ` (${fund.ticker})` : ""}
-                </div>
-                <div className={styles.cardMeta} style={{ marginTop: "0.35rem" }}>
-                  {run.status ?? "—"} · {new Date(run.createdAt).toLocaleString()}
-                </div>
-              </Link>
-            ))}
+          <div className={styles.workflowRunsStack} role="list">
+            {runRows.map(({ run, template, version, document, fund }) => {
+              const started = new Date(run.createdAt);
+              return (
+                <Link
+                  key={run.id}
+                  href={`/runs/${run.id}`}
+                  className={styles.workflowRunCard}
+                  role="listitem"
+                >
+                  <div className={styles.workflowRunCardTop}>
+                    <span className={styles.workflowRunCardTitle}>
+                      {template.name}
+                    </span>
+                    <span className={styles.workflowRunCardStatus}>
+                      {run.status ?? "—"}
+                    </span>
+                  </div>
+                  <p className={styles.workflowRunCardMeta}>
+                    {document.title}
+                    <span aria-hidden> · </span>v{version.version}
+                    {fund?.name ? (
+                      <>
+                        <span aria-hidden> · </span>
+                        {fund.name}
+                        {fund.ticker ? ` (${fund.ticker})` : ""}
+                      </>
+                    ) : null}
+                  </p>
+                  <div className={styles.workflowRunCardBottom}>
+                    <time
+                      className={styles.workflowRunCardWhen}
+                      dateTime={started.toISOString()}
+                    >
+                      {started.toLocaleString()}
+                    </time>
+                    <span className={styles.workflowRunCardCta}>Open run</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </main>

@@ -13,8 +13,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "PortCheck",
-  description: "Disclosure workflow demo",
+  title: "PortCheck — disclosure control",
+  description:
+    "Reference operating model for fund disclosure: versioned documents, QA gates, DAG workflow, and append-only audit trail — enforced on the server.",
 };
 
 export default function RootLayout({
@@ -33,9 +34,6 @@ export default function RootLayout({
             <a href="/" className={styles.topBarLink}>
               Home
             </a>
-            <a href="/funds" className={styles.topBarLink}>
-              Funds
-            </a>
             <a href="/documents" className={styles.topBarLink}>
               Documents
             </a>
@@ -45,13 +43,10 @@ export default function RootLayout({
             <a href="/compliance" className={styles.topBarLink}>
               Compliance
             </a>
-            <a href="/audit" className={styles.topBarLink}>
-              Audit
-            </a>
           </nav>
           <div className={styles.topBarRight}>
-            <a href="/funds" className={styles.topBarCta}>
-              Browse funds
+            <a href="/documents" className={styles.topBarCta}>
+              Browse documents
             </a>
           </div>
         </header>

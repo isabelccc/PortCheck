@@ -75,12 +75,7 @@ export default async function FundsPage({ searchParams }: PageProps) {
                   ) : null}
                 </div>
                 {f.companyName ? (
-                  <p
-                    className={styles.subtitle}
-                    style={{ marginTop: "0.35rem", marginBottom: 0 }}
-                  >
-                    {f.companyName}
-                  </p>
+                  <p className={styles.cardSubline}>{f.companyName}</p>
                 ) : null}
               </Link>
             ))}

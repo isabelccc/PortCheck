@@ -74,6 +74,7 @@ async function resolveRedlineBaseline(
 }
 import { getDemoRole } from "../../../../../lib/demo-role-server";
 import { getVersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
+import { loadSystemValidationForVersion } from "../../../../../lib/version-system-validation";
 import styles from "../../../../disclosure.module.css";
 import { VersionWorkspaceClient } from "./version-workspace-client";
 
@@ -141,6 +142,11 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
     .limit(1);
 
   const approvalReadiness = await getVersionApprovalReadiness(versionId);
+  const systemValidationSaved =
+    (await loadSystemValidationForVersion(versionId)) ?? {
+      ok: true,
+      checks: [],
+    };
 
   return (
     <div className={styles.shell}>
@@ -167,8 +173,10 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
         </div>
 
         <VersionWorkspaceClient
+          key={`${documentId}-${versionId}`}
           documentId={documentId}
           versionId={versionId}
+          documentSlug={row.document.slug}
           docTitle={row.document.title}
           versionLabel={row.version.version}
           status={row.version.status}
@@ -202,6 +210,7 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
           redlineBaselineMode={redlineBaselineMode}
           redlineBaselineVersionLabel={baselineVersionLabel}
           approvalReadiness={approvalReadiness}
+          systemValidationSaved={systemValidationSaved}
         />
       </main>
     </div>

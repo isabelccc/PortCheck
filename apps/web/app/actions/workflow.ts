@@ -16,6 +16,7 @@ import { validateWorkflowTransition } from "../../lib/workflow-rules-engine";
 import type { WorkflowEdgeLite, WorkflowStepLite } from "../../lib/workflow-rules-engine";
 import { canMutateWorkflow } from "../../lib/demo-role-constants";
 import { getDemoRole } from "../../lib/demo-role-server";
+import { loadSystemValidationForVersion } from "../../lib/version-system-validation";
 
 const ALLOWED = new Set(["pending", "running", "completed", "blocked", "skipped"]);
 
@@ -153,6 +154,15 @@ async function assertFinalApprovalQaGates(
     return {
       ok: false,
       error: `Final approval is blocked: ${open} required QA checklist item(s) still open. Complete them in the Filing QA workspace.`,
+    };
+  }
+
+  const sys = await loadSystemValidationForVersion(run.documentVersionId);
+  if (sys && !sys.ok) {
+    const failed = sys.checks.filter((c) => !c.ok).map((c) => c.label);
+    return {
+      ok: false,
+      error: `Final approval is blocked: system validation failed — ${failed.join("; ")}`,
     };
   }
 

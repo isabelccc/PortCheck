@@ -170,7 +170,7 @@ export default async function AuditPage({ searchParams }: PageProps) {
         ) : null}
 
         <div
-          className={`${styles.innerTableBleed} ${styles.auditTableWrap}`}
+          className={`${styles.innerTableAlign} ${styles.auditTableWrap}`}
         >
           <table className={styles.auditTable}>
             <thead>

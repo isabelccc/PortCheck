@@ -67,14 +67,13 @@ export default async function DocumentsIndexPage({ searchParams }: PageProps) {
                 href={`/documents/${d.id}`}
                 className={styles.card}
               >
-                <div className={styles.slugRow}>
-                  <span className={styles.slug}>{d.slug}</span>
-                </div>
                 <div className={styles.cardTitle}>{d.title}</div>
-                <div className={styles.cardMeta}>
+                <p className={styles.cardMetaLine}>
+                  <span className={styles.cardMetaSlug}>{d.slug}</span>
+                  {" · "}
                   {fundName}
                   {fundTicker ? ` · ${fundTicker}` : ""}
-                </div>
+                </p>
               </Link>
             ))}
           </div>

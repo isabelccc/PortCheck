@@ -24,10 +24,15 @@ import {
 } from "../../../../../lib/demo-role-constants";
 import type { VersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
 import {
+  evaluateSystemValidation,
+  type SystemValidationResult,
+} from "../../../../../lib/system-validation";
+import {
   expandRedlinePartsToSideBySideRows,
   type RedlinePart,
 } from "../../../../../lib/redline-split-rows";
 import styles from "../../../../disclosure.module.css";
+import { WorkspaceEntryLoadBar } from "./workspace-entry-load-bar";
 
 export type ChecklistDTO = {
   id: string;
@@ -65,6 +70,9 @@ const SEED_IXBRL_VERSION_ID = "b0000002-0000-4000-8000-000000000002";
  */
 const USER_CHECKLIST_CODE_PREFIX = "user_";
 
+/** System check card: bar + headline % animate 0 → target over this duration. */
+const SYSTEM_CHECK_CARD_PROGRESS_MS = 5000;
+
 type Flash = { tone: "success" | "error"; text: string };
 
 type RedlineBaselineMode = "parent" | "previous" | "anchor" | "none";
@@ -72,6 +80,7 @@ type RedlineBaselineMode = "parent" | "previous" | "anchor" | "none";
 type Props = {
   documentId: string;
   versionId: string;
+  documentSlug: string;
   docTitle: string;
   versionLabel: string;
   status: string;
@@ -85,11 +94,14 @@ type Props = {
   /** Prior revision label when mode is `parent` or `previous`. */
   redlineBaselineVersionLabel: string | null;
   approvalReadiness: VersionApprovalReadiness;
+  /** Automatic checks against last saved body (same as server on submit). */
+  systemValidationSaved: SystemValidationResult;
 };
 
 export function VersionWorkspaceClient({
   documentId,
   versionId,
+  documentSlug,
   docTitle,
   versionLabel,
   status,
@@ -102,6 +114,7 @@ export function VersionWorkspaceClient({
   redlineBaselineMode,
   redlineBaselineVersionLabel,
   approvalReadiness,
+  systemValidationSaved,
 }: Props) {
   const router = useRouter();
 
@@ -146,6 +159,54 @@ export function VersionWorkspaceClient({
   const requiredOpen = useMemo(() => {
     return checklist.filter((c) => c.required && !c.completedAt);
   }, [checklist]);
+
+  const systemValidationDraft = useMemo(
+    () =>
+      evaluateSystemValidation({
+        content,
+        documentSlug,
+        documentTitle: docTitle,
+      }),
+    [content, documentSlug, docTitle],
+  );
+
+  const systemGatesOk =
+    systemValidationSaved.ok && systemValidationDraft.ok;
+
+  const sysChecks = systemValidationDraft.checks;
+  const sysTotal = sysChecks.length;
+  const sysPassed = sysChecks.filter((c) => c.ok).length;
+  const sysTargetPct = useMemo(
+    () => (sysTotal === 0 ? 100 : Math.round((sysPassed / sysTotal) * 100)),
+    [sysTotal, sysPassed],
+  );
+  const sysComplete = sysTotal > 0 && sysPassed === sysTotal;
+
+  /** Card progress bar: slow 0 → target (~5s), then “complete” chrome + pulse. */
+  const [cardBarPct, setCardBarPct] = useState(0);
+  const [cardBarAnimDone, setCardBarAnimDone] = useState(false);
+
+  useEffect(() => {
+    setCardBarAnimDone(false);
+    setCardBarPct(0);
+    const start = performance.now();
+    const target = sysTargetPct;
+    let raf = 0;
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / SYSTEM_CHECK_CARD_PROGRESS_MS);
+      setCardBarPct(Math.round(t * target));
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        setCardBarPct(target);
+        setCardBarAnimDone(true);
+      }
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [sysTargetPct, versionId]);
 
   const redlineSplitRows = useMemo(
     () => expandRedlinePartsToSideBySideRows(redline),
@@ -356,6 +417,7 @@ export function VersionWorkspaceClient({
 
   return (
     <div>
+      <WorkspaceEntryLoadBar />
       <div
         className={styles.workspaceGatesCard}
         aria-label="Process control and gates"
@@ -372,24 +434,6 @@ export function VersionWorkspaceClient({
             </span>
             <span className={styles.workflowProgressSmall}>required QA</span>
           </div>
-        </div>
-        <div
-          className={styles.workspaceQaBarTrack}
-          role="progressbar"
-          aria-valuenow={
-            approvalReadiness.requiredTotal === 0
-              ? 100
-              : approvalReadiness.checklistProgressPct
-          }
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
-          <div
-            className={styles.workspaceQaBarFill}
-            style={{
-              width: `${approvalReadiness.requiredTotal === 0 ? 100 : approvalReadiness.checklistProgressPct}%`,
-            }}
-          />
         </div>
         {approvalReadiness.requiredTotal === 0 ? (
           <p className={styles.workspaceCheckMeta} style={{ margin: "0.35rem 0 0" }}>
@@ -426,11 +470,159 @@ export function VersionWorkspaceClient({
           </span>
         </div>
 
+        <div
+          className={`${styles.workspaceSysCheckCard} ${sysComplete && cardBarAnimDone ? styles.workspaceSysCheckCardComplete : ""} ${!systemGatesOk ? styles.workspaceSysCheckCardGatesPending : ""}`}
+          aria-label="Automatic system validation"
+        >
+          <div className={styles.workspaceSysCheckTopBar}>
+            <span className={styles.workspaceSysCheckKicker}>Progress</span>
+            <span
+              className={
+                systemGatesOk
+                  ? styles.workspaceSystemValidationBadgeOk
+                  : styles.workspaceSystemValidationBadgeBad
+              }
+            >
+              {systemGatesOk ? "Gates OK" : "Saved + editor"}
+            </span>
+          </div>
+
+          <div className={styles.workspaceSysCheckSummaryRow}>
+            <div className={styles.workspaceSysCheckSummaryLeft}>
+              <div className={styles.workspaceSysCheckPctLine}>
+                <span className={styles.workspaceSysCheckPct} aria-live="polite">
+                  {sysTotal === 0 ? "—" : `${cardBarPct}%`}
+                </span>
+                {sysTotal > 0 ? (
+                  sysComplete ? (
+                    <span className={styles.workspaceSysCheckStatusOk}>
+                      All checks pass.
+                    </span>
+                  ) : (
+                    <span className={styles.workspaceSysCheckStatusWarn}>
+                      {sysTotal - sysPassed} rule
+                      {sysTotal - sysPassed !== 1 ? "s" : ""} need attention.
+                    </span>
+                  )
+                ) : (
+                  <span className={styles.workspaceSysCheckStatusNeutral}>
+                    No rules in this profile.
+                  </span>
+                )}
+              </div>
+              {sysComplete && cardBarAnimDone ? (
+                <p className={styles.workspaceSysCheckFinalLine}>
+                  <span className={styles.workspaceSysCheckFinalTag}>
+                    Final completed
+                  </span>
+                </p>
+              ) : null}
+            </div>
+            <div
+              className={styles.workspaceSysCheckCounter}
+              aria-label={`${sysPassed} of ${sysTotal} checks done`}
+            >
+              <span className={styles.workspaceSysCheckCounterBig}>
+                {sysTotal === 0 ? "—" : `${sysPassed}/${sysTotal}`}
+              </span>
+              <span className={styles.workspaceSysCheckCounterSmall}>done</span>
+            </div>
+          </div>
+
+          <div
+            className={styles.workspaceSysCheckBarTrack}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={sysTotal === 0 ? 100 : cardBarPct}
+            aria-label="System check progress"
+          >
+            <div
+              className={`${styles.workspaceSysCheckBarFill} ${cardBarAnimDone && sysComplete ? styles.workspaceSysCheckBarFillComplete : ""}`}
+              style={{
+                width: sysTotal === 0 ? "100%" : `${cardBarPct}%`,
+              }}
+            />
+          </div>
+
+          <div className={styles.workspaceSysCheckLegend} aria-hidden>
+            <span className={styles.workspaceSysCheckLegendItem}>
+              <span className={styles.workspaceSysCheckDotDone} />
+              Done
+            </span>
+            <span className={styles.workspaceSysCheckLegendItem}>
+              <span className={styles.workspaceSysCheckDotRunning} />
+              Running
+            </span>
+            <span className={styles.workspaceSysCheckLegendItem}>
+              <span className={styles.workspaceSysCheckDotPending} />
+              Pending
+            </span>
+            <span className={styles.workspaceSysCheckLegendItem}>
+              <span className={styles.workspaceSysCheckDotBlocked} />
+              Blocked
+            </span>
+          </div>
+          <p className={styles.workspaceSysCheckLegendHint}>
+            Instant rules: pass = Done, fail = Blocked. Running / Pending apply to workflow
+            steps elsewhere.
+          </p>
+
+          <p className={styles.workspaceCheckMeta} style={{ margin: "0.5rem 0 0.45rem" }}>
+            Submit / approve use the <strong>saved</strong> body; preview below follows the
+            editor (including unsaved text).
+          </p>
+          <ul className={styles.workspaceSystemValidationList}>
+            {sysChecks.map((c) => (
+              <li
+                key={c.id}
+                className={
+                  c.ok
+                    ? styles.workspaceSystemValidationItemOk
+                    : styles.workspaceSystemValidationItemBad
+                }
+              >
+                <span
+                  className={
+                    c.ok
+                      ? styles.workspaceSysCheckRowDotOk
+                      : styles.workspaceSysCheckRowDotBlocked
+                  }
+                  aria-hidden
+                />
+                <span>
+                  <span className={styles.workspaceSystemValidationItemLabel}>
+                    {c.label}
+                  </span>
+                  {c.detail ? (
+                    <span className={styles.workspaceSystemValidationItemDetail}>
+                      {" "}
+                      — {c.detail}
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {content !== initialContent && !systemValidationSaved.ok ? (
+            <p className={styles.workflowError} style={{ marginTop: "0.35rem" }} role="status">
+              Saved draft still fails validation — <strong>Save</strong> after fixing so submit
+              can succeed.
+            </p>
+          ) : null}
+        </div>
+
         {status === "draft" && requiredOpen.length > 0 ? (
           <p className={styles.workflowError} style={{ marginTop: "0.5rem" }} role="status">
             <strong>{requiredOpen.length}</strong> required checklist item
             {requiredOpen.length !== 1 ? "s" : ""} open — finish in <strong>Checklist</strong>{" "}
             tab.
+          </p>
+        ) : null}
+        {status === "draft" && requiredOpen.length === 0 && !systemGatesOk ? (
+          <p className={styles.workflowError} style={{ marginTop: "0.5rem" }} role="status">
+            System validation must pass on the saved draft and current editor content before
+            submit.
           </p>
         ) : null}
         {status === "rejected" ? (
@@ -470,11 +662,13 @@ export function VersionWorkspaceClient({
               <button
                 type="button"
                 className={styles.workflowAutoRunBtn}
-                disabled={pending || requiredOpen.length > 0}
+                disabled={pending || requiredOpen.length > 0 || !systemGatesOk}
                 title={
                   requiredOpen.length > 0
                     ? "Complete required checklist items first."
-                    : undefined
+                    : !systemGatesOk
+                      ? "Clear system validation (saved body + editor) before submitting."
+                      : undefined
                 }
                 onClick={() => void onSubmitForApproval()}
               >
@@ -486,8 +680,12 @@ export function VersionWorkspaceClient({
             <button
               type="button"
               className={styles.workflowAutoRunBtn}
-              disabled={pending}
-              title="Create workflow run for this version"
+              disabled={pending || !systemGatesOk}
+              title={
+                !systemGatesOk
+                  ? "System validation must pass before starting a workflow run."
+                  : "Create workflow run for this version"
+              }
               onClick={() => void onSubmitForApproval()}
             >
               Start workflow run
@@ -591,14 +789,17 @@ export function VersionWorkspaceClient({
                     approveNote.trim().length < 24 ||
                     approvalReadiness.requiredOpen > 0 ||
                     (approvalReadiness.runId !== null &&
-                      !approvalReadiness.finalApprovalComplete)
+                      !approvalReadiness.finalApprovalComplete) ||
+                    !systemGatesOk
                   }
                   title={
                     approvalReadiness.requiredOpen > 0
                       ? "Close required checklist items."
                       : approvalReadiness.runId && !approvalReadiness.finalApprovalComplete
                         ? "Complete final step on linked DAG run."
-                        : undefined
+                        : !systemGatesOk
+                          ? "System validation must pass (saved body + editor)."
+                          : undefined
                   }
                   onClick={() => void onApproveVersion()}
                 >

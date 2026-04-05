@@ -19,13 +19,18 @@
   /* Pilot-style light shell (reference layout) */
   --pilot-bg: #f7f7f7;
   --pilot-surface: #ededed;
-  --pilot-accent: #e2ff44;
+  /* Bright chartreuse — tabs, loading, in-progress system check bar */
+  --pilot-accent: #e2ff6f;
+  /* Calm success green — system check bar & chrome after 5s completion */
+  --pilot-success-green: #62c46e;
   --pilot-text: #000000;
   --pilot-muted: #707070;
   --pilot-line: #d1d1d1;
   /* Neo-brutalist frames (black outline + hard offset shadow, lime header) */
   --pilot-brutal-shadow: 4px 4px 0 #000000;
   --pilot-brutal-radius: 7px;
+  /* Align fixed chrome (load bar) with `layout` header + `shell` min-height calc */
+  --topbar-height: 53px;
 
   --background: var(--pilot-bg);
   --foreground: var(--pilot-text);

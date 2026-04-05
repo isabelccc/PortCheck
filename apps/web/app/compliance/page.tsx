@@ -22,7 +22,12 @@ export default async function CompliancePage() {
         </Link>
         <h1 className={styles.display}>Compliance</h1>
         <p className={styles.subtitleTight}>
-          Demo role and policy library. Use Workflow for runs and review queue.
+          Control owners: set a <strong>demo role</strong> to simulate who may view, prepare
+          reviews, or sign off. Policies below anchor the narrative; use{" "}
+          <Link href="/reviews" className={styles.inlineLink}>
+            Workflow &amp; review
+          </Link>{" "}
+          for the live queue and DAG runs.
         </p>
 
         <section className={styles.complianceOpsSection} aria-labelledby="ops-heading">
