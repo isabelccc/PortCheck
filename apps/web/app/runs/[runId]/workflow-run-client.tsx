@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   Background,
   Controls,
@@ -13,10 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useRouter } from "next/navigation";
-import {
-  advanceWorkflowAutoWave,
-  updateStepStatus,
-} from "../../actions/workflow";
+import { updateStepStatus } from "../../actions/workflow";
 import {
   validateWorkflowTransition,
 } from "../../../lib/workflow-rules-engine";
@@ -28,12 +25,6 @@ import {
 import styles from "../../disclosure.module.css";
 
 const nodeTypes = { workflowStep: WorkflowStepNode };
-
-const AUTO_WAVE_DELAY_MS = 750;
-
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
 
 function stepProgress(steps: StepRow[]) {
   const total = steps.length;
@@ -84,21 +75,12 @@ export function WorkflowRunClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
-  const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
-  const autoCancelRef = useRef(false);
-  const autoRunLockRef = useRef(false);
   const [optimisticSteps, setOptimisticSteps] = useState<StepRow[] | null>(
     null,
   );
   const [evidenceNote, setEvidenceNote] = useState("");
 
   const canMutateWorkflow = demoRole !== "viewer";
-
-  useEffect(() => {
-    return () => {
-      autoCancelRef.current = true;
-    };
-  }, []);
 
   const stepsSyncKey = useMemo(
     () =>
@@ -205,49 +187,8 @@ export function WorkflowRunClient({
     });
   }
 
-  async function runAutoToCompletion() {
-    if (!canMutateWorkflow) {
-      return;
-    }
-    if (autoRunLockRef.current) {
-      return;
-    }
-    autoRunLockRef.current = true;
-    setMessage(null);
-    setOptimisticSteps(null);
-    autoCancelRef.current = false;
-    setIsAutoAdvancing(true);
-    try {
-      while (!autoCancelRef.current) {
-        const res = await advanceWorkflowAutoWave(runId, "auto@demo.local");
-        if (!res.ok) {
-          setMessage(res.error);
-          break;
-        }
-        router.refresh();
-        if (res.allCompleted) {
-          break;
-        }
-        if (res.idle) {
-          setMessage(
-            "Auto-run stopped: no eligible steps (for example blocked steps need manual changes).",
-          );
-          break;
-        }
-        await sleep(AUTO_WAVE_DELAY_MS);
-      }
-    } finally {
-      autoRunLockRef.current = false;
-      setIsAutoAdvancing(false);
-    }
-  }
-
-  function stopAuto() {
-    autoCancelRef.current = true;
-  }
-
   const prog = useMemo(() => stepProgress(displaySteps), [displaySteps]);
-  const busy = isPending || isAutoAdvancing || !canMutateWorkflow;
+  const busy = isPending || !canMutateWorkflow;
 
   const runningLabels = prog.running
     .map(
@@ -260,63 +201,58 @@ export function WorkflowRunClient({
   const finalStatus = finalNode
     ? (displaySteps.find((s) => s.nodeId === finalNode.data.nodeId)?.status ?? "")
     : "";
+  const versionInReview = linkedVersionStatus === "in_review";
 
   return (
-    <div>
-      <div
-        className={styles.workflowPanel}
-        style={{ marginBottom: "1rem", padding: "1rem 1.15rem" }}
-      >
-        <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
-          QA / approval engine coupling
-        </div>
-        <p className={styles.workflowPanelHint} style={{ marginBottom: "0.5rem" }}>
-          Completing <strong>Final approval</strong> on this DAG is server-gated: the
-          linked document version must be <code>in_review</code>, and every{" "}
-          <strong>required</strong> Filing QA checklist row must be closed first.
-          Admin <strong>document sign-off</strong> in the QA workspace then requires
-          this final step to be <code>completed</code>.
-        </p>
-        {linkedVersionStatus !== "in_review" ? (
-          <p className={styles.workflowError} role="status">
-            Linked version is <strong>{linkedVersionStatus.replaceAll("_", " ")}</strong>{" "}
-            — use <em>Submit for approval</em> from the Filing QA workspace so the
-            version is <code>in_review</code> before finishing final approval.
+    <div
+      className={styles.workflowRunUnified}
+      aria-busy={busy}
+      aria-label="Workflow run"
+    >
+      <div className={styles.workflowRunPanel}>
+        {!versionInReview ? (
+          <p className={styles.workflowRunGateError} role="status">
+            Version not <strong>in review</strong> — submit from QA workspace before
+            final approval.
           </p>
         ) : null}
         {openRequiredChecklist > 0 ? (
-          <p className={styles.workflowError} role="status">
-            <strong>{openRequiredChecklist}</strong> required checklist item(s) still
-            open on the linked version — final approval completion is blocked.
-          </p>
-        ) : linkedVersionStatus === "in_review" ? (
-          <p className={styles.workflowPanelHint} role="status">
-            QA gate: no open <strong>required</strong> checklist items for linked
-            version.
+          <p className={styles.workflowRunGateError} role="status">
+            <strong>{openRequiredChecklist}</strong> required checklist item(s) open.
           </p>
         ) : null}
-        {finalNode ? (
-          <p className={styles.workflowPanelHint} style={{ marginTop: "0.35rem" }}>
-            Final approval step status: <strong>{finalStatus || "—"}</strong>
-          </p>
-        ) : null}
-      </div>
 
-      <section
-        className={styles.workflowProgressSection}
-        aria-busy={busy}
-        aria-label="Workflow progress"
-      >
+        <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
+          Progress
+        </div>
         <div className={styles.workflowProgressHeader}>
-          <div>
-            <h2 className={styles.workflowProgressTitle}>Progress</h2>
-           
+          <div className={styles.workflowProgressMeta} style={{ marginTop: 0 }}>
+            <span>{prog.pct}%</span>
+            {prog.allDone ? (
+              <span className={styles.workflowProgressCelebrate}>All steps done.</span>
+            ) : (
+              <span>
+                {prog.running.length > 0
+                  ? `Now: ${runningLabels || "—"}`
+                  : prog.blocked.length > 0
+                    ? `${prog.blocked.length} blocked`
+                    : "Advance steps below."}
+              </span>
+            )}
+            {finalNode ? (
+              <span className={styles.workflowRunFinalPill}>
+                Final <strong>{finalStatus || "—"}</strong>
+              </span>
+            ) : null}
+            {isPending ? (
+              <span className={styles.workflowProgressSaving}>Saving…</span>
+            ) : null}
           </div>
           <div className={styles.workflowProgressFraction}>
             <span className={styles.workflowProgressBig}>
               {prog.completed}/{prog.total}
             </span>
-            <span className={styles.workflowProgressSmall}>steps done</span>
+            <span className={styles.workflowProgressSmall}>done</span>
           </div>
         </div>
 
@@ -337,28 +273,6 @@ export function WorkflowRunClient({
             }}
           />
         </div>
-        <div className={styles.workflowProgressMeta}>
-          <span>{prog.pct}%</span>
-          {prog.allDone ? (
-            <span className={styles.workflowProgressCelebrate}>
-              All steps completed — run is finished for this demo.
-            </span>
-          ) : (
-            <span>
-              {prog.running.length > 0
-                ? `In progress: ${runningLabels || "—"}`
-                : prog.blocked.length > 0
-                  ? `${prog.blocked.length} step(s) blocked`
-                  : "No step marked running — use buttons below to advance."}
-            </span>
-          )}
-          {isPending ? (
-            <span className={styles.workflowProgressSaving}>Saving…</span>
-          ) : null}
-          {isAutoAdvancing ? (
-            <span className={styles.workflowProgressSaving}>Auto-running…</span>
-          ) : null}
-        </div>
 
         <ul className={styles.workflowProgressLegend} aria-label="Legend">
           <li>
@@ -367,48 +281,20 @@ export function WorkflowRunClient({
           </li>
           <li>
             <span className={styles.workflowLegendSwatch} data-status="running" />{" "}
-            In progress
+            Running
           </li>
           <li>
             <span className={styles.workflowLegendSwatch} data-status="pending" />{" "}
-            Not started
+            Pending
           </li>
           <li>
             <span className={styles.workflowLegendSwatch} data-status="blocked" />{" "}
             Blocked
           </li>
         </ul>
+      </div>
 
-        <ol className={styles.workflowProgressChecklist}>
-          {displaySteps.map((s) => {
-            const label =
-              baseNodes.find((n) => n.data.nodeId === s.nodeId)?.data.label ??
-              s.nodeId;
-            return (
-              <li
-                key={s.id}
-                className={styles.workflowCheckItem}
-                data-status={s.status}
-              >
-                <span
-                  className={styles.workflowCheckIcon}
-                  data-status={s.status}
-                  aria-hidden
-                />
-                <span className={styles.workflowCheckLabel}>{label}</span>
-                <span className={styles.workflowCheckState}>
-                  {s.status.replaceAll("_", " ")}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
-      <div
-        className={styles.workflowCanvas}
-        style={{ height: 520, width: "100%" }}
-      >
+      <div className={styles.workflowRunCanvasWrap}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -421,6 +307,7 @@ export function WorkflowRunClient({
           nodesConnectable={false}
           elementsSelectable={false}
           proOptions={{ hideAttribution: true }}
+          style={{ width: "100%", height: "100%" }}
         >
           <Background gap={16} color="#d4d4d4" />
           <Controls />
@@ -428,64 +315,35 @@ export function WorkflowRunClient({
         </ReactFlow>
       </div>
 
-      {message ? (
-        <p className={styles.workflowError} role="alert">
-          {message}
-        </p>
-      ) : null}
-
-      <div className={styles.workflowPanel}>
-        <div className={styles.sectionLabel}>Step transitions</div>
-        <p className={styles.workflowPanelHint}>
-          Updates <code>step_executions</code> and appends <code>audit_events</code>{" "}
-          (append-only log). Transitions follow the DAG: upstream steps must be{" "}
-          <strong>completed</strong> or <strong>skipped</strong> before downstream
-          steps can run or finish.
-        </p>
+      <div className={styles.workflowRunPanel}>
+        <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
+          Steps
+        </div>
+        {message ? (
+          <p className={styles.workflowError} role="alert">
+            {message}
+          </p>
+        ) : null}
         {!canMutateWorkflow ? (
           <p className={styles.workflowViewerBanner} role="status">
-            <strong>Viewer</strong> mode: workflow controls are read-only. Set role
-            to reviewer or admin on{" "}
+            <strong>Viewer</strong> — read-only. Change role on{" "}
             <a href="/compliance" className={styles.inlineLink}>
               Compliance
             </a>
             .
           </p>
         ) : null}
-        <div className={styles.workflowAutoRow}>
-          <button
-            type="button"
-            className={styles.workflowAutoRunBtn}
-            disabled={busy || prog.allDone}
-            onClick={() => void runAutoToCompletion()}
-          >
-            Auto-run to completion
-          </button>
-          <button
-            type="button"
-            className={styles.workflowAutoStopBtn}
-            disabled={!isAutoAdvancing}
-            onClick={stopAuto}
-          >
-            Stop
-          </button>
-          <span className={styles.workflowAutoHint}>
-            Demo: starts every ready step, then completes all in progress, repeats
-            until 100% or nothing left to do.
-          </span>
-        </div>
         {canMutateWorkflow ? (
           <label className={styles.workflowEvidenceField}>
             <span className={styles.workflowEvidenceLabel}>
-              Evidence / attestation (required when marking an{" "}
-              <strong>approval</strong> step completed)
+              Evidence for <strong>approval</strong> completions
             </span>
             <textarea
               className={styles.workflowEvidenceTextarea}
-              rows={3}
+              rows={2}
               value={evidenceNote}
               onChange={(e) => setEvidenceNote(e.target.value)}
-              placeholder="e.g. Supervisory review complete; no material issues."
+              placeholder="Required when marking an approval step completed."
             />
           </label>
         ) : null}

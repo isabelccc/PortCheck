@@ -29,7 +29,7 @@
   flex-direction: column;
   gap: 1.5rem;
   grid-row-start: 1;
-  max-width: 40rem;
+  max-width: min(46rem, 100%);
   width: 100%;
   align-self: center;
 }
@@ -59,6 +59,98 @@
   color: var(--pilot-muted);
   margin: 0;
   max-width: 38rem;
+}
+
+.projectFlow {
+  margin-top: 0.75rem;
+  padding: 1.25rem 1.2rem 1.35rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: 6px;
+  background: var(--pilot-surface);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--pilot-text) 14%, transparent);
+}
+
+.projectFlowTitle {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+  margin: 0 0 0.35rem;
+}
+
+.projectFlowHeadline {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0 0 1rem;
+  color: var(--pilot-text);
+}
+
+.projectFlowTrack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.projectFlowCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 9.5rem;
+  min-width: min(100%, 9.5rem);
+  min-height: 6.75rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 22%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--pilot-text) 3%, var(--pilot-surface));
+  text-decoration: none;
+  color: inherit;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.projectFlowCard:hover {
+  background: color-mix(in srgb, var(--pilot-accent) 18%, var(--pilot-surface));
+  border-color: var(--pilot-text);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
+}
+
+.projectFlowCard:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pilot-accent) 50%, transparent);
+  outline-offset: 2px;
+}
+
+.projectFlowNum {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--pilot-muted);
+  letter-spacing: 0.04em;
+}
+
+.projectFlowStepTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
+  color: var(--pilot-text);
+}
+
+.projectFlowStepBlurb {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--pilot-muted);
+  margin: 0;
+  flex: 1;
 }
 
 .ctas {

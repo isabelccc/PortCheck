@@ -21,42 +21,79 @@ export default function Home() {
           <Link className={styles.primary} href="/funds">
             View funds &amp; documents
           </Link>
-          <Link className={styles.secondary} href="/reviews">
-            Review queue
-          </Link>
           <Link className={styles.secondary} href="/compliance">
             Compliance hub
           </Link>
+          <Link className={styles.secondary} href="/reviews">
+            Review queue
+          </Link>
         </div>
+
+        <section
+          className={styles.projectFlow}
+          aria-labelledby="project-flow-heading"
+        >
+          <p className={styles.projectFlowTitle}>End-to-end</p>
+          <h2 id="project-flow-heading" className={styles.projectFlowHeadline}>
+            How the demo runs
+          </h2>
+          <div className={styles.projectFlowTrack}>
+            <Link href="/funds" className={styles.projectFlowCard}>
+              <span className={styles.projectFlowNum}>01</span>
+              <p className={styles.projectFlowStepTitle}>Funds &amp; documents</p>
+              <p className={styles.projectFlowStepBlurb}>
+                Pick a fund, open a document, browse version history.
+              </p>
+            </Link>
+            <Link href="/documents" className={styles.projectFlowCard}>
+              <span className={styles.projectFlowNum}>02</span>
+              <p className={styles.projectFlowStepTitle}>Version workspace</p>
+              <p className={styles.projectFlowStepBlurb}>
+                Edit body, redlines, checklist, iXBRL stub, export — then submit for
+                review.
+              </p>
+            </Link>
+            <Link href="/runs" className={styles.projectFlowCard}>
+              <span className={styles.projectFlowNum}>03</span>
+              <p className={styles.projectFlowStepTitle}>Workflow DAG</p>
+              <p className={styles.projectFlowStepBlurb}>
+                Parallel steps on a template; rules engine + audit on each transition.
+              </p>
+            </Link>
+            <Link href="/reviews" className={styles.projectFlowCard}>
+              <span className={styles.projectFlowNum}>04</span>
+              <p className={styles.projectFlowStepTitle}>Review &amp; sign-off</p>
+              <p className={styles.projectFlowStepBlurb}>
+                Queue for in-review versions; admin approval when gates clear.
+              </p>
+            </Link>
+            <Link href="/audit" className={styles.projectFlowCard}>
+              <span className={styles.projectFlowNum}>05</span>
+              <p className={styles.projectFlowStepTitle}>Audit trail</p>
+              <p className={styles.projectFlowStepBlurb}>
+                Immutable log: search, filters, and text diffs for evidence.
+              </p>
+            </Link>
+          </div>
+        </section>
 
         <ul className={styles.bullets} aria-label="What ships today">
           <li>
-            <strong>Data model</strong> — funds, documents, and{" "}
-            <code>document_versions</code> with optional parent lineage.
+            <strong>Data</strong> —{" "}
+            <code>document_versions</code> with optional parent lineage; roles in a
+            cookie.
           </li>
           <li>
-            <strong>Workflow</strong> — React Flow DAG from seeded templates;
-            shared rules engine enforces upstream completion before downstream
-            moves; optional <strong>auto-run</strong> advances waves on the server;
-            actions write <code>step_executions</code> + append-only{" "}
-            <code>audit_events</code>.
+            <strong>Workflow</strong> — React Flow +{" "}
+            <code>step_executions</code>; append-only <code>audit_events</code>.
           </li>
           <li>
-            <strong>Filing QA &amp; EDGAR-style export</strong> — per-version{" "}
-            <Link href="/reviews">workspace</Link> with redlines vs parent,
-            QA checklists, demo Inline XBRL fact validation, and downloadable HTML
-            stub (not EDGAR Live).
+            <strong>QA workspace</strong> — redlines, checklist gates, demo iXBRL
+            validation, HTML export stub (not EDGAR Live).
           </li>
           <li>
-            <strong>Compliance workflows</strong> — seeded{" "}
-            <Link href="/compliance">policies</Link>, cookie-based roles
-            (viewer / reviewer / admin), evidence on checklist + approval
-            completion, <Link href="/reviews">review queue</Link>, append-only
-            audit.
-          </li>
-          <li>
-            <strong>Stack</strong> — Next.js App Router, Turborepo, Drizzle ORM,
-            shared <code>@repo/db</code> workspace package.
+            <strong>Stack</strong> — Next.js 16, Turborepo, Drizzle, Postgres via{" "}
+            <code>@repo/db</code>.
           </li>
         </ul>
 
@@ -99,9 +136,7 @@ export default function Home() {
         <span className={styles.footerSep}>·</span>
         <Link href="/documents">Documents</Link>
         <span className={styles.footerSep}>·</span>
-        <Link href="/runs">Runs</Link>
-        <span className={styles.footerSep}>·</span>
-        <Link href="/audit">Audit</Link>
+        <Link href="/compliance">Compliance</Link>
         <span className={styles.footerSep}>·</span>
         <span className={styles.footerMeta}>PortCheck</span>
       </footer>

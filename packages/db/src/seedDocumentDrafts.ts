@@ -41,31 +41,29 @@ export function tanchRiskDraft(): string {
 export function bulkDocumentDraft(kindTitle: string, fundIndex: number): string {
   return [
     section(
-      `${kindTitle} — working draft (Fund series ${fundIndex})`,
+      `${kindTitle} (series ${fundIndex})`,
       [
-        `This section is a long-form working draft for "${kindTitle}" as it might appear in a preliminary filing package. It is seeded for UI testing of scroll length, version history, and workflow states.`,
-        "The Adviser expects to revise definitions, cross-references, and risk factor ordering following internal legal review and comparison to prior filing cycles. Numerical examples, fee tables, and index descriptions may be updated before any effective date.",
+        "Working draft body for QA, redline, and workflow demos — not filing language.",
+        "Edits to definitions, cross-references, and risk ordering are expected after legal review.",
       ].join("\n\n"),
     ),
     section(
       "General considerations",
       [
-        "Investors should consider their investment objectives, time horizon, tax situation, and risk tolerance before investing. Past performance does not guarantee future results. This draft does not list every risk that may affect an investment in the fund complex.",
+        "Investors should consider objectives, horizon, taxes, and risk tolerance. Past performance does not guarantee future results.",
       ].join("\n\n"),
     ),
     section(
-      "Operational and disclosure mechanics (placeholder)",
+      "Operations",
       [
-        "Final disclosure will incorporate defined terms used consistently across the prospectus, summary prospectus, and SAI. Defined terms relating to the index, portfolio holdings disclosure, and pricing conventions will be synchronized with service provider agreements and board materials.",
-        "The Trust’s officers will coordinate updates to risk factors when material changes occur in portfolio strategy, service provider arrangements, regulatory requirements, or market structure affecting fund operations.",
+        "Defined terms will align across prospectus, summary prospectus, and SAI. Officers coordinate risk-factor updates when strategy, providers, or regulation change materially.",
       ].join("\n\n"),
     ),
     section(
-      "Additional draft paragraphs for length",
-      Array.from({ length: 8 }, (_, k) =>
+      "Draft continuation",
+      Array.from({ length: 2 }, (_, k) =>
         [
-          `Paragraph ${k + 1}: Coordinating editors will track outstanding comments from compliance, portfolio management, and fund accounting. Resolution of open items will be documented in a change log maintained for each document slug.`,
-          "Cross-functional review meetings are scheduled at milestones leading to filing. Redline comparisons against the prior effective version will highlight additions, deletions, and reordered sections for trustee briefing.",
+          `Block ${k + 1}: Open comments are tracked in a per-slug change log; redlines vs the prior effective version support trustee review.`,
         ].join(" "),
       ).join("\n\n"),
     ),

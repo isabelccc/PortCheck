@@ -34,8 +34,82 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1.75rem;
+  gap: 1.35rem;
   justify-self: center;
+}
+
+.complianceOpsSection {
+  margin: 0 0 2rem;
+}
+
+.complianceOpsHeading {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+  margin: 0 0 0.85rem;
+}
+
+.complianceOpsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16.5rem, 1fr));
+  gap: 1rem 1.1rem;
+}
+
+.complianceOpsCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 8.5rem;
+  padding: 1.2rem 1.3rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  background: var(--pilot-surface);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--pilot-text) 16%, transparent);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    background 0.14s ease;
+}
+
+.complianceOpsCard:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--pilot-text) 20%, transparent);
+  background: color-mix(in srgb, var(--pilot-accent) 22%, var(--pilot-surface));
+}
+
+.complianceOpsCard:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pilot-accent) 55%, transparent);
+  outline-offset: 3px;
+}
+
+.complianceOpsCardKicker {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+  margin: 0;
+}
+
+.complianceOpsCardTitle {
+  font-size: clamp(1.15rem, 2.8vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0;
+  color: var(--pilot-text);
+}
+
+.complianceOpsCardDesc {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--pilot-muted);
+  margin: 0;
+  flex: 1;
 }
 
 .topBarLink {
@@ -111,6 +185,18 @@
   max-width: 52rem;
   margin: 0 auto;
   padding: 2.75rem 1.5rem 4rem;
+}
+
+/*
+ * Break out past .inner (52rem) so wide data tables use the viewport.
+ * Uses margins only (no transform) so descendants keep viewport-fixed positioning
+ * (e.g. audit body-diff tooltip).
+ */
+.innerTableBleed {
+  width: min(calc(100vw - 3rem), 50rem);
+  max-width: min(calc(100vw - 3rem), 70rem);
+  margin-left: calc(50% - 50vw + 18rem);
+  margin-right: calc(50% - 50vw + 1.5rem);
 }
 
 .display {
@@ -289,8 +375,9 @@
 }
 
 .versionCard {
-  border-radius: 4px;
-  border: 1px solid var(--pilot-line);
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
   background: var(--pilot-surface);
   overflow: hidden;
 }
@@ -301,8 +388,8 @@
   align-items: center;
   gap: 0.5rem 0.75rem;
   padding: 1rem 1.15rem;
-  border-bottom: 1px solid var(--pilot-line);
-  background: #e5e5e5;
+  border-bottom: 1px solid color-mix(in srgb, var(--pilot-text) 18%, transparent);
+  background: color-mix(in srgb, var(--pilot-text) 5%, var(--pilot-surface));
 }
 
 .versionHead .cardTitle {
@@ -378,6 +465,237 @@
   margin-top: 0.25rem;
 }
 
+.workspaceGatesCard {
+  margin-bottom: 1rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
+  background: var(--pilot-surface);
+}
+
+.workspaceGatesDivide {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--pilot-text) 20%, transparent);
+}
+
+.workspaceDecisionSegment {
+  display: inline-flex;
+  margin: 0 0 0.75rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  overflow: hidden;
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 18%, transparent);
+}
+
+.workspaceDecisionSegmentBtn {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  border: none;
+  border-right: 1px solid var(--pilot-line);
+  background: var(--pilot-surface);
+  color: var(--pilot-text);
+  cursor: pointer;
+}
+
+.workspaceDecisionSegmentBtn:last-child {
+  border-right: none;
+}
+
+.workspaceDecisionSegmentBtn[data-active="true"] {
+  background: var(--pilot-accent);
+  border-color: var(--pilot-text);
+}
+
+.workspaceDecisionSegmentBtn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pilot-accent) 65%, transparent);
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+.workspaceAddChecklistCard {
+  margin-top: 1.25rem;
+  padding: 1.2rem 1.3rem 1.35rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
+  background: var(--pilot-surface);
+}
+
+.workspaceAddChecklistHeader {
+  margin-bottom: 1.05rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--pilot-text) 14%, transparent);
+}
+
+.workspaceAddChecklistTitle {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0 0 0.4rem;
+  color: var(--pilot-text);
+}
+
+.workspaceAddChecklistHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--pilot-muted);
+}
+
+.workspaceAddChecklistBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+}
+
+.workspaceAddChecklistField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.workspaceAddChecklistLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+}
+
+.workspaceAddChecklistTextarea {
+  width: 100%;
+  min-height: 5rem;
+  max-height: 14rem;
+  margin: 0;
+  padding: 0.8rem 0.95rem;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 22%, transparent);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 8%, transparent);
+  background: color-mix(in srgb, var(--pilot-text) 2.5%, var(--pilot-surface));
+  color: var(--pilot-text);
+  resize: vertical;
+}
+
+.workspaceAddChecklistTextarea::placeholder {
+  color: var(--pilot-muted);
+  opacity: 0.85;
+}
+
+.workspaceAddChecklistTextarea:focus {
+  outline: none;
+  box-shadow:
+    2px 2px 0 color-mix(in srgb, var(--pilot-text) 8%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--pilot-accent) 50%, transparent);
+}
+
+.workspaceAddChecklistControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.5rem;
+}
+
+.workspaceAddChecklistControls .workspaceAddChecklistField {
+  flex: 1 1 12rem;
+  min-width: min(100%, 11rem);
+}
+
+.workspaceAddChecklistSelect {
+  width: 100%;
+  max-width: 22rem;
+  padding: 0.55rem 0.8rem;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  background: var(--pilot-surface);
+  color: var(--pilot-text);
+  cursor: pointer;
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
+}
+
+.workspaceAddChecklistSelect:focus {
+  outline: none;
+  box-shadow:
+    2px 2px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--pilot-accent) 50%, transparent);
+}
+
+.workspaceAddChecklistToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 20%, transparent);
+  border-radius: var(--pilot-brutal-radius);
+  background: color-mix(in srgb, var(--pilot-text) 5%, var(--pilot-surface));
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 8%, transparent);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--pilot-text);
+  flex: 0 1 auto;
+}
+
+.workspaceAddChecklistToggle input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--pilot-text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.workspaceAddChecklistBtn {
+  align-self: stretch;
+  margin-top: 0.15rem;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  background: var(--pilot-accent);
+  color: var(--pilot-text);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--pilot-text) 18%, transparent);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.workspaceAddChecklistBtn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--pilot-text) 22%, transparent);
+}
+
+.workspaceAddChecklistBtn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.workspaceAddChecklistBtn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pilot-accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
 .contentBlock {
   margin: 0;
   padding: 1.25rem 1.15rem;
@@ -400,8 +718,9 @@
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: var(--radio-p2-size);
   line-height: var(--radio-p2-lh);
-  border: 1px solid var(--pilot-line);
-  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 22%, transparent);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 10%, transparent);
   background: var(--pilot-surface);
   color: var(--pilot-text);
   resize: vertical;
@@ -460,6 +779,70 @@
 .contextLine strong {
   font-weight: 700;
   color: var(--pilot-text);
+}
+
+.runPageToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem 2.25rem;
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 20%, transparent);
+  border-radius: var(--pilot-brutal-radius);
+  background: var(--pilot-surface);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 10%, transparent);
+}
+
+.runPageToolbarId {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  min-width: min(100%, 12rem);
+}
+
+.runPageToolbarKicker {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+}
+
+.runPageToolbarNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.runPageLink {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 1.05rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  color: var(--pilot-text);
+  text-decoration: none;
+  background: var(--pilot-surface);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.runPageLink:hover {
+  background: color-mix(in srgb, var(--pilot-text) 7%, var(--pilot-surface));
+  box-shadow: 1px 1px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
+}
+
+.runPageLink:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pilot-accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .pagination {
@@ -557,6 +940,11 @@
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.workflowRunUnified .workflowProgressHeader > .workflowProgressMeta {
+  flex: 1;
+  min-width: min(100%, 12rem);
 }
 
 .workflowProgressTitle {
@@ -834,10 +1222,70 @@
   overflow: hidden;
 }
 
+.workflowRunUnified {
+  margin-top: 1.25rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
+  background: var(--pilot-surface);
+  overflow: hidden;
+}
+
+.workflowRunPanel {
+  padding: 1rem 1.2rem;
+}
+
+.workflowRunCanvasWrap {
+  height: min(520px, 72vh);
+  min-height: 300px;
+  width: 100%;
+  border-top: 1px solid var(--pilot-text);
+  border-bottom: 1px solid var(--pilot-text);
+  background: #fafafa;
+}
+
+.workflowRunGateError {
+  margin: 0 0 0.85rem;
+  font-size: var(--radio-p3-size);
+  line-height: 1.45;
+  color: #b91c1c;
+}
+
+.workflowRunFinalPill {
+  font-size: 0.75rem;
+  color: var(--pilot-muted);
+  text-transform: capitalize;
+}
+
+.workflowRunFinalPill strong {
+  color: var(--pilot-text);
+  font-weight: 700;
+}
+
+.workflowRunUnified .workflowProgressLegend {
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid color-mix(in srgb, var(--pilot-text) 18%, transparent);
+}
+
+.workflowRunUnified .workflowStepList {
+  border-color: var(--pilot-text);
+}
+
 .workflowError {
   margin: 0.75rem 0 0;
   font-size: var(--radio-p3-size);
   color: #b91c1c;
+}
+
+.workflowFlashSuccess {
+  margin: 0.75rem 0 0;
+  font-size: var(--radio-p3-size);
+  color: #166534;
+  padding: 0.5rem 0.65rem;
+  border-radius: 4px;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
 }
 
 .workflowPanel {
@@ -916,12 +1364,12 @@
 
 .workflowViewerBanner {
   margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0.55rem 0.7rem;
   border-radius: 4px;
-  border: 1px solid var(--pilot-line);
-  background: #fafafa;
+  border: 1px solid var(--pilot-text);
+  background: color-mix(in srgb, var(--pilot-bg) 92%, #fff);
   font-size: var(--radio-p3-size);
-  line-height: 1.5;
+  line-height: 1.45;
   color: var(--pilot-text);
 }
 
@@ -939,15 +1387,28 @@
 }
 
 .workflowEvidenceTextarea {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  padding: 0.55rem 0.65rem;
-  border-radius: 4px;
-  border: 1px solid var(--pilot-line);
+  box-sizing: border-box;
   width: 100%;
-  max-width: 40rem;
+  max-width: none;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--pilot-brutal-radius);
+  border: 1px solid var(--pilot-text);
+  background: #fff;
+  color: var(--pilot-text);
   resize: vertical;
+  min-height: 2.6rem;
+}
+
+.workflowEvidenceTextarea::placeholder {
+  color: var(--pilot-muted);
+}
+
+.workflowEvidenceTextarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pilot-accent) 50%, transparent);
 }
 
 .workspaceTabs {
@@ -1017,16 +1478,25 @@
   margin-top: 0.35rem;
 }
 
+.workspaceIxbrlTableWrap {
+  margin-top: 0.75rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
+  background: var(--pilot-surface);
+  overflow-x: auto;
+}
+
 .workspaceIxbrlTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8rem;
-  margin-top: 0.75rem;
+  margin-top: 0;
 }
 
 .workspaceIxbrlTable th,
 .workspaceIxbrlTable td {
-  border: 1px solid var(--pilot-line);
+  border: 1px solid var(--pilot-text);
   padding: 0.45rem 0.55rem;
   text-align: left;
   vertical-align: top;
@@ -1034,6 +1504,7 @@
 
 .workspaceIxbrlTable th {
   background: #f5f5f5;
+  color: var(--pilot-text);
   font-weight: 600;
 }
 
@@ -1043,10 +1514,12 @@
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  border: 1px solid var(--pilot-line);
-  border-radius: 4px;
+  margin-top: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 22%, transparent);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
   padding: 1rem;
-  background: #fafafa;
+  background: var(--pilot-surface);
   max-height: 28rem;
   overflow: auto;
 }
@@ -1065,6 +1538,98 @@
 .workspaceRedlineSame {
   display: block;
   opacity: 0.85;
+}
+
+.workspaceRedlineSplit {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--pilot-text) 22%, transparent);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 12%, transparent);
+  background: var(--pilot-surface);
+  max-height: 28rem;
+  overflow: hidden;
+}
+
+.workspaceRedlineHeaderSub {
+  color: var(--pilot-muted);
+  font-weight: 500;
+}
+
+.workspaceRedlineSplitHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pilot-text);
+  background: color-mix(in srgb, var(--pilot-text) 6%, var(--pilot-surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--pilot-text) 18%, transparent);
+  flex-shrink: 0;
+}
+
+.workspaceRedlineSplitHeaderCell {
+  padding: 0.5rem 0.65rem;
+  border-right: 1px solid color-mix(in srgb, var(--pilot-text) 14%, transparent);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.workspaceRedlineSplitHeaderCell:last-child {
+  border-right: none;
+}
+
+.workspaceRedlineSplitBody {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspaceRedlineSplitRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--pilot-text) 12%, transparent);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.workspaceRedlineSplitRow:last-child {
+  border-bottom: none;
+}
+
+.workspaceRedlineSplitCell {
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1.45em;
+  border-right: 1px solid color-mix(in srgb, var(--pilot-text) 12%, transparent);
+}
+
+.workspaceRedlineSplitCell:last-child {
+  border-right: none;
+}
+
+.workspaceRedlineSplitCellNeutral {
+  background: var(--pilot-surface);
+  color: var(--pilot-muted);
+}
+
+.workspaceRedlineSplitCellSame {
+  background: color-mix(in srgb, var(--pilot-text) 4%, var(--pilot-surface));
+  color: var(--pilot-text);
+}
+
+.workspaceRedlineSplitCellRemove {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.workspaceRedlineSplitCellAdd {
+  background: #dcfce7;
+  color: #14532d;
 }
 
 .workspaceExportActions {
@@ -1113,15 +1678,16 @@
   border-collapse: collapse;
   font-size: var(--radio-p3-size);
   margin-top: 0;
-  border: 1px solid var(--pilot-line);
-  border-radius: 2px;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
   overflow: hidden;
   background: var(--pilot-surface);
 }
 
 .reviewQueueTable th,
 .reviewQueueTable td {
-  border: 1px solid var(--pilot-line);
+  border: 1px solid var(--pilot-text);
   padding: 0.55rem 0.65rem;
   text-align: left;
   vertical-align: top;
@@ -1225,10 +1791,26 @@
 }
 
 .auditFilters {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
   margin-bottom: 1.75rem;
-  max-width: 36rem;
+  max-width: 100%;
+}
+
+.auditSearchWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: min(100%, 14rem);
+}
+
+.auditSearchLabel {
+  font-size: var(--radio-p3-size);
+  font-weight: 600;
+  color: var(--pilot-text);
 }
 
 .auditField {
@@ -1241,6 +1823,9 @@
 }
 
 .auditInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.8125rem;
   padding: 0.5rem 0.65rem;
@@ -1281,8 +1866,9 @@
 
 .auditTableWrap {
   overflow-x: auto;
-  border: 1px solid var(--pilot-line);
-  border-radius: 4px;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
   background: var(--pilot-surface);
 }
 
@@ -1297,7 +1883,7 @@
   padding: 0.65rem 0.85rem;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid var(--pilot-line);
+  border: 1px solid var(--pilot-text);
 }
 
 .auditTable th {
@@ -1309,8 +1895,24 @@
   letter-spacing: 0.08em;
 }
 
-.auditTable tbody tr:last-child td {
-  border-bottom: none;
+.auditColWhat {
+  min-width: 17rem;
+}
+
+.auditWhatPrimary {
+  line-height: 1.45;
+}
+
+.auditWhatRedline {
+  display: block;
+}
+
+.auditColRecord {
+  min-width: 14rem;
+}
+
+.auditColChain {
+  min-width: 12rem;
 }
 
 .auditCellNowrap {
@@ -1329,30 +1931,318 @@
   margin-top: 0.2rem;
 }
 
-.auditPayload pre {
+.auditDetailSummary {
   margin: 0;
+  max-width: 32rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--pilot-text);
+}
+
+.auditDetailLine {
+  margin: 0;
+}
+
+.auditDetailLine + .auditDetailLine {
+  margin-top: 0.35rem;
+}
+
+.auditDetailEmpty {
+  margin: 0;
+  color: var(--pilot-muted);
+  font-size: 0.8125rem;
+}
+
+.auditChainCell {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  min-width: 12rem;
+}
+
+.auditChainLabel {
+  color: var(--pilot-muted);
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.auditDiffHover {
+  position: relative;
+  display: inline-block;
+  margin-top: 0.35rem;
+}
+
+.auditDiffHoverTrigger {
+  cursor: help;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: #1d4ed8;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.auditDiffHoverTrigger:hover,
+.auditDiffHoverTrigger:focus-visible {
+  color: #1e40af;
+  outline: none;
+}
+
+.auditDiffHoverTrigger:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, #1d4ed8 35%, transparent);
+  border-radius: 2px;
+}
+
+.auditDiffTooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  min-width: min(26rem, 92vw);
+  max-width: min(44rem, calc(100vw - 1.5rem));
+  max-height: min(22rem, 56vh);
+  overflow: hidden;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--pilot-line) 65%, transparent);
+  background: color-mix(in srgb, var(--pilot-surface) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 12px 32px rgb(15 23 42 / 0.14),
+    0 0 0 1px rgb(255 255 255 / 0.35) inset;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    visibility 0.16s ease;
+}
+
+/*
+ * Anchor positioning: panel is viewport-fixed to the trigger so it can extend past
+ * .inner (52rem) and the audit table’s horizontal scroll container.
+ * anchor-name / position-anchor are set inline per row (audit/page.tsx).
+ */
+@supports (top: anchor(bottom)) {
+  .auditDiffTooltip {
+    position: fixed;
+    left: anchor(left);
+    top: anchor(bottom);
+    margin-top: 6px;
+    min-width: min(30rem, calc(100vw - 2rem));
+    max-width: min(76rem, calc(100vw - 2rem));
+    max-height: min(28rem, 68vh);
+  }
+}
+
+/* Hover bridge so the pointer can reach the panel without flicker */
+.auditDiffTooltip::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 10px;
+}
+
+.auditDiffHover:hover .auditDiffTooltip,
+.auditDiffHover:focus-within .auditDiffTooltip {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.auditDiffTooltipNote {
+  margin: 0;
+  padding: 0.45rem 0.65rem 0.35rem;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--pilot-muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--pilot-line) 50%, transparent);
+  flex-shrink: 0;
+}
+
+.auditDiffTooltipScroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 0.45rem 0.55rem 0.55rem;
+}
+
+/* Devices without hover: full-bleed panel vs viewport (break past .inner column) */
+@media (hover: none) {
+  .auditDiffHover {
+    display: block;
+    width: 100%;
+  }
+
+  .auditDiffTooltip {
+    position: relative;
+    width: 100vw;
+    max-width: min(76rem, calc(100vw - 2rem));
+    margin-top: 0.35rem;
+    margin-left: calc(50% - 50vw + 1rem);
+    margin-right: calc(50% - 50vw + 1rem);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    max-height: min(24rem, 55vh);
+  }
+
+  .auditDiffTooltip::before {
+    display: none;
+  }
+}
+
+.auditDiffWrap {
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid var(--pilot-line);
+  border-radius: 4px;
+  padding: 0.5rem 0.45rem;
+  background: #fafafa;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.6875rem;
-  line-height: 1.45;
+  line-height: 1.4;
+}
+
+.auditDiffTooltip .auditDiffWrap {
+  max-height: none;
+  overflow: visible;
+  border: none;
+  padding: 0.15rem 0;
+  background: transparent;
+}
+
+.auditDiffAdd {
+  margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  max-width: 28rem;
-  max-height: 6rem;
-  overflow: auto;
+  background: #dcfce7;
+  color: #14532d;
 }
 
-.versionWorkflowLinks {
-  margin-top: 0.5rem;
-  font-size: var(--radio-p3-size);
+.auditDiffRemove {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fee2e2;
+  color: #7f1d1d;
 }
 
-.versionWorkflowLinks a {
-  font-weight: 600;
+.auditDiffSame {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #6b7280;
+}
+
+.auditDiffEmpty {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
   color: var(--pilot-muted);
 }
 
-.versionWorkflowLinks a:hover {
+.auditDiffTooltip .auditDiffAdd {
+  background: color-mix(in srgb, #22c55e 28%, transparent);
+  color: #052e16;
+  border-radius: 3px;
+  padding: 0.1rem 0.2rem;
+}
+
+.auditDiffTooltip .auditDiffRemove {
+  background: color-mix(in srgb, #ef4444 26%, transparent);
+  color: #450a0a;
+  border-radius: 3px;
+  padding: 0.1rem 0.2rem;
+}
+
+.versionWorkflowLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid color-mix(in srgb, var(--pilot-text) 12%, transparent);
+  background: var(--pilot-surface);
+}
+
+.versionWorkflowLinks a {
+  font-weight: 700;
   color: var(--pilot-text);
+  text-decoration: none;
+  border-bottom: 2px solid var(--pilot-accent);
+  padding-bottom: 0.05rem;
+}
+
+.versionWorkflowLinks a:hover {
+  color: var(--pilot-muted);
+  border-bottom-color: var(--pilot-text);
+}
+
+.versionWorkflowSep {
+  color: var(--pilot-muted);
+  font-weight: 500;
+  user-select: none;
+}
+
+.versionCardContent {
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.workspacePageHero {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--pilot-text);
+  border-radius: var(--pilot-brutal-radius);
+  box-shadow: var(--pilot-brutal-shadow);
+  background: var(--pilot-surface);
+}
+
+.workspacePageHeroLabel {
+  display: inline-block;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pilot-muted);
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--pilot-line);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--pilot-text) 4%, var(--pilot-surface));
+}
+
+.workspacePageHeroVer {
+  font-size: var(--radio-h2-size);
+  line-height: var(--radio-h2-lh);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--pilot-text);
+  margin: 0 0 0.35rem;
+}
+
+.workspacePageHeroSub {
+  font-size: var(--radio-p2-size);
+  line-height: var(--radio-p2-lh);
+  color: var(--pilot-muted);
+  margin: 0;
+  max-width: 42rem;
 }
 
 @media (max-width: 720px) {

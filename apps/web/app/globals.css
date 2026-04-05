@@ -23,6 +23,9 @@
   --pilot-text: #000000;
   --pilot-muted: #707070;
   --pilot-line: #d1d1d1;
+  /* Neo-brutalist frames (black outline + hard offset shadow, lime header) */
+  --pilot-brutal-shadow: 4px 4px 0 #000000;
+  --pilot-brutal-radius: 7px;
 
   --background: var(--pilot-bg);
   --foreground: var(--pilot-text);

@@ -12,12 +12,14 @@ import {
 } from "@repo/db";
 import { asc, eq } from "drizzle-orm";
 
-type RedlineBaselineMode = "parent" | "previous" | "none";
+type RedlineBaselineMode = "parent" | "previous" | "anchor" | "none";
 
 async function resolveRedlineBaseline(
   documentIdForSiblings: string,
   versionId: string,
   explicitParentId: string | null,
+  /** Prior saved body for this row (see `redline_anchor_content`). */
+  anchorContent: string | null,
 ): Promise<{
   baselineContent: string;
   mode: RedlineBaselineMode;
@@ -51,15 +53,24 @@ async function resolveRedlineBaseline(
     .orderBy(asc(documentVersions.createdAt), asc(documentVersions.version));
 
   const idx = siblings.findIndex((v) => v.id === versionId);
-  if (idx <= 0) {
-    return { baselineContent: "", mode: "none", baselineVersionLabel: null };
+  if (idx > 0) {
+    const prev = siblings[idx - 1]!;
+    return {
+      baselineContent: prev.content,
+      mode: "previous",
+      baselineVersionLabel: prev.version,
+    };
   }
-  const prev = siblings[idx - 1]!;
-  return {
-    baselineContent: prev.content,
-    mode: "previous",
-    baselineVersionLabel: prev.version,
-  };
+
+  if (anchorContent != null) {
+    return {
+      baselineContent: anchorContent,
+      mode: "anchor",
+      baselineVersionLabel: "Last saved draft",
+    };
+  }
+
+  return { baselineContent: "", mode: "none", baselineVersionLabel: null };
 }
 import { getDemoRole } from "../../../../../lib/demo-role-server";
 import { getVersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
@@ -101,6 +112,7 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
       row.document.id,
       versionId,
       row.version.parentVersionId,
+      row.version.redlineAnchorContent ?? null,
     );
 
   const redlineParts = diffLines(baselineContent, row.version.content, {
@@ -134,23 +146,25 @@ export default async function VersionWorkspacePage({ params }: PageProps) {
     <div className={styles.shell}>
       <main className={styles.inner}>
         <Link href={`/documents/${documentId}`} className={styles.back}>
-          ← Document versions
+          ← Versions
         </Link>
-        <h1 className={styles.title}>Filing QA workspace</h1>
-        <p className={styles.subtitle}>
-          {row.document.title}
-          {fund ? (
-            <>
-              <span className={styles.subtitleSep}>·</span> {fund.name}
-              {fund.ticker ? (
-                <span className={styles.ticker} style={{ marginLeft: "0.35rem" }}>
-                  {fund.ticker}
-                </span>
-              ) : null}
-            </>
-          ) : null}
-          <span className={styles.subtitleSep}>·</span> {row.version.version}
-        </p>
+        <div className={styles.workspacePageHero}>
+          <div className={styles.workspacePageHeroLabel}>Workspace</div>
+          <h1 className={styles.workspacePageHeroVer}>{row.version.version}</h1>
+          <p className={styles.workspacePageHeroSub}>
+            {row.document.title}
+            {fund ? (
+              <>
+                <span className={styles.subtitleSep}>·</span> {fund.name}
+                {fund.ticker ? (
+                  <span className={styles.ticker} style={{ marginLeft: "0.35rem" }}>
+                    {fund.ticker}
+                  </span>
+                ) : null}
+              </>
+            ) : null}
+          </p>
+        </div>
 
         <VersionWorkspaceClient
           documentId={documentId}

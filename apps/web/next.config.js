@@ -12,7 +12,7 @@ loadEnv({ path: path.join(__dirname, ".env.local") });
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@repo/db"],
-  /** Match `turbopack.root` so Next 16 does not warn on Vercel. */
+  /** Monorepo root for tracing; must match `turbopack.root` (Next 16 / Vercel). */
   outputFileTracingRoot: monorepoRoot,
   experimental: {
     serverActions: {

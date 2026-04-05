@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import {
-  auditEvents,
+  appendAuditEvent,
   db,
   documentVersions,
   ixbrlFactDrafts,
   versionChecklistItems,
+  workflowRuns,
 } from "@repo/db";
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import {
   canApproveDocumentVersion,
   canMutateChecklist,
@@ -17,6 +19,10 @@ import {
   canReopenRejectedVersion,
 } from "../../lib/demo-role-constants";
 import { getDemoRole } from "../../lib/demo-role-server";
+import {
+  insertWorkflowRunWithSteps,
+  purgeWorkflowRunsForVersion,
+} from "../../lib/workflow-run-for-version";
 import { getVersionApprovalReadiness } from "../../lib/version-approval-readiness";
 
 const ROLE_COOKIE = "demo_role";
@@ -80,7 +86,7 @@ export async function toggleChecklistItem(input: {
     if (!note || note.length < minLen) {
       return {
         ok: false,
-        error: `Required checklist items need an evidence note of at least ${minLen} characters (Series B–style attestation).`,
+        error: `Required checklist items need an evidence note of at least ${minLen} characters (attestation for audit trail).`,
       };
     }
   }
@@ -94,7 +100,7 @@ export async function toggleChecklistItem(input: {
     })
     .where(eq(versionChecklistItems.id, row.item.id));
 
-  await db.insert(auditEvents).values({
+  await appendAuditEvent({
     actorId: actor,
     action: "checklist_item_updated",
     entityType: "checklist_item",
@@ -115,13 +121,174 @@ export async function toggleChecklistItem(input: {
   return { ok: true };
 }
 
+const CHECKLIST_CATEGORIES = [
+  "qa_content",
+  "ixbrl",
+  "edgar_pack",
+  "sec_control",
+] as const;
+
+/** Prefix for rows created via the workspace UI (removable while incomplete). */
+const USER_CHECKLIST_CODE_PREFIX = "user_";
+
+export async function addChecklistItem(input: {
+  versionId: string;
+  label: string;
+  category: string;
+  required: boolean;
+  actorId?: string;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const role = await getDemoRole();
+  if (!canMutateChecklist(role)) {
+    return { ok: false, error: "Viewer role cannot edit checklists." };
+  }
+
+  const label = input.label.trim();
+  if (label.length < 3) {
+    return { ok: false, error: "Label must be at least 3 characters." };
+  }
+  if (label.length > 600) {
+    return { ok: false, error: "Label is too long (max 600 characters)." };
+  }
+
+  const cat = input.category.trim();
+  if (!CHECKLIST_CATEGORIES.includes(cat as (typeof CHECKLIST_CATEGORIES)[number])) {
+    return { ok: false, error: "Invalid checklist category." };
+  }
+
+  const [ver] = await db
+    .select({
+      id: documentVersions.id,
+      documentId: documentVersions.documentId,
+      status: documentVersions.status,
+    })
+    .from(documentVersions)
+    .where(eq(documentVersions.id, input.versionId))
+    .limit(1);
+  if (!ver) {
+    return { ok: false, error: "Version not found." };
+  }
+  if (ver.status === "approved") {
+    return { ok: false, error: "Cannot add checklist rows to an approved version." };
+  }
+
+  const [agg] = await db
+    .select({
+      maxSort: sql<number>`coalesce(max(${versionChecklistItems.sortOrder}), 0)`,
+    })
+    .from(versionChecklistItems)
+    .where(eq(versionChecklistItems.documentVersionId, input.versionId));
+
+  const nextOrder = Number(agg?.maxSort ?? 0) + 1;
+  const code = `${USER_CHECKLIST_CODE_PREFIX}${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+  const id = randomUUID();
+  const actor = input.actorId?.trim() || "reviewer@demo.local";
+
+  await db.insert(versionChecklistItems).values({
+    id,
+    documentVersionId: input.versionId,
+    sortOrder: nextOrder,
+    code,
+    label,
+    category: cat,
+    required: input.required,
+    completedAt: null,
+    completedBy: null,
+    evidenceNote: null,
+  });
+
+  await appendAuditEvent({
+    actorId: actor,
+    action: "checklist_item_created",
+    entityType: "checklist_item",
+    entityId: id,
+    payload: {
+      documentVersionId: input.versionId,
+      code,
+      label,
+      category: cat,
+      required: input.required,
+    },
+  });
+
+  revalidatePath(`/documents/${ver.documentId}/versions/${input.versionId}`);
+  revalidatePath("/audit");
+  revalidatePath("/reviews");
+  return { ok: true, id };
+}
+
+export async function removeUserChecklistItem(input: {
+  itemId: string;
+  actorId?: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getDemoRole();
+  if (!canMutateChecklist(role)) {
+    return { ok: false, error: "Viewer role cannot edit checklists." };
+  }
+
+  const [row] = await db
+    .select({
+      item: versionChecklistItems,
+      documentId: documentVersions.documentId,
+      status: documentVersions.status,
+    })
+    .from(versionChecklistItems)
+    .innerJoin(
+      documentVersions,
+      eq(documentVersions.id, versionChecklistItems.documentVersionId),
+    )
+    .where(eq(versionChecklistItems.id, input.itemId))
+    .limit(1);
+
+  if (!row) {
+    return { ok: false, error: "Checklist item not found." };
+  }
+  if (row.status === "approved") {
+    return { ok: false, error: "Cannot remove rows from an approved version." };
+  }
+  if (row.item.completedAt) {
+    return { ok: false, error: "Uncheck the item before removing it." };
+  }
+  if (!row.item.code.startsWith(USER_CHECKLIST_CODE_PREFIX)) {
+    return {
+      ok: false,
+      error: "Only checklist rows you added from this workspace can be removed.",
+    };
+  }
+
+  const actor = input.actorId?.trim() || "reviewer@demo.local";
+
+  await db
+    .delete(versionChecklistItems)
+    .where(eq(versionChecklistItems.id, row.item.id));
+
+  await appendAuditEvent({
+    actorId: actor,
+    action: "checklist_item_deleted",
+    entityType: "checklist_item",
+    entityId: row.item.id,
+    payload: {
+      documentVersionId: row.item.documentVersionId,
+      code: row.item.code,
+      label: row.item.label,
+    },
+  });
+
+  revalidatePath(
+    `/documents/${row.documentId}/versions/${row.item.documentVersionId}`,
+  );
+  revalidatePath("/audit");
+  revalidatePath("/reviews");
+  return { ok: true };
+}
+
 export async function submitVersionForApproval(input: {
   versionId: string;
   actorId?: string;
 }): Promise<
   | { ok: true }
   | { ok: false; error: string; blockCount?: number }
-  | { ok: true; alreadyInReview: true }
+  | { ok: true; alreadyInReview: true; workflowStarted?: boolean }
 > {
   const role = await getDemoRole();
   if (!canMutateChecklist(role)) {
@@ -149,10 +316,7 @@ export async function submitVersionForApproval(input: {
         "This version was rejected — use “Reopen as draft” in the QA workspace, then fix and resubmit.",
     };
   }
-  if (data.status === "in_review") {
-    return { ok: true, alreadyInReview: true };
-  }
-  if (data.status !== "draft") {
+  if (data.status !== "draft" && data.status !== "in_review") {
     return { ok: false, error: `Cannot submit from status ${data.status}.` };
   }
 
@@ -177,17 +341,104 @@ export async function submitVersionForApproval(input: {
 
   const actor = input.actorId?.trim() || "reviewer@demo.local";
 
-  await db
-    .update(documentVersions)
-    .set({ status: "in_review" })
-    .where(
-      and(
-        eq(documentVersions.id, input.versionId),
-        eq(documentVersions.status, "draft"),
-      ),
-    );
+  /** Legacy rows: already in_review but no workflow run — create run + steps only. */
+  if (data.status === "in_review") {
+    const [existingRun] = await db
+      .select({ id: workflowRuns.id })
+      .from(workflowRuns)
+      .where(eq(workflowRuns.documentVersionId, input.versionId))
+      .limit(1);
+    if (existingRun) {
+      return { ok: true, alreadyInReview: true };
+    }
 
-  await db.insert(auditEvents).values({
+    let wfMeta: { runId: string; templateId: string; templateName: string };
+    try {
+      wfMeta = await db.transaction(async (tx) => {
+        const ins = await insertWorkflowRunWithSteps(tx, {
+          versionId: input.versionId,
+          actorId: actor,
+        });
+        if (!ins.ok) {
+          throw new Error(ins.error);
+        }
+        return {
+          runId: ins.runId,
+          templateId: ins.templateId,
+          templateName: ins.templateName,
+        };
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not start workflow run";
+      return { ok: false, error: msg };
+    }
+
+    await appendAuditEvent({
+      actorId: actor,
+      action: "workflow_run_started",
+      entityType: "workflow_run",
+      entityId: wfMeta.runId,
+      payload: {
+        templateId: wfMeta.templateId,
+        templateName: wfMeta.templateName,
+        documentVersionId: input.versionId,
+        trigger: "heal_in_review_without_run",
+      },
+    });
+
+    const docId = data.documentId;
+    revalidatePath(`/documents/${docId}`);
+    revalidatePath(`/documents/${docId}/versions/${input.versionId}`);
+    revalidatePath("/reviews");
+    revalidatePath("/runs");
+    revalidatePath(`/runs/${wfMeta.runId}`);
+    revalidatePath("/audit");
+    return {
+      ok: true,
+      alreadyInReview: true,
+      workflowStarted: true,
+    };
+  }
+
+  let wfMeta: { runId: string; templateId: string; templateName: string };
+  try {
+    wfMeta = await db.transaction(async (tx) => {
+      await purgeWorkflowRunsForVersion(tx, data.id);
+
+      const updated = await tx
+        .update(documentVersions)
+        .set({ status: "in_review" })
+        .where(
+          and(
+            eq(documentVersions.id, input.versionId),
+            eq(documentVersions.status, "draft"),
+          ),
+        )
+        .returning({ id: documentVersions.id });
+
+      if (updated.length === 0) {
+        throw new Error("Version is no longer in draft — refresh and retry.");
+      }
+
+      const ins = await insertWorkflowRunWithSteps(tx, {
+        versionId: data.id,
+        actorId: actor,
+      });
+      if (!ins.ok) {
+        throw new Error(ins.error);
+      }
+      return {
+        runId: ins.runId,
+        templateId: ins.templateId,
+        templateName: ins.templateName,
+      };
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Submit failed";
+    return { ok: false, error: msg };
+  }
+
+  await appendAuditEvent({
     actorId: actor,
     action: "version_submitted_for_approval",
     entityType: "document_version",
@@ -197,6 +448,20 @@ export async function submitVersionForApproval(input: {
       documentId: data.documentId,
       priorStatus: "draft",
       newStatus: "in_review",
+      workflowRunId: wfMeta.runId,
+    },
+  });
+
+  await appendAuditEvent({
+    actorId: actor,
+    action: "workflow_run_started",
+    entityType: "workflow_run",
+    entityId: wfMeta.runId,
+    payload: {
+      templateId: wfMeta.templateId,
+      templateName: wfMeta.templateName,
+      documentVersionId: data.id,
+      trigger: "submit_for_review",
     },
   });
 
@@ -204,6 +469,8 @@ export async function submitVersionForApproval(input: {
   revalidatePath(`/documents/${docId}`);
   revalidatePath(`/documents/${docId}/versions/${input.versionId}`);
   revalidatePath("/reviews");
+  revalidatePath("/runs");
+  revalidatePath(`/runs/${wfMeta.runId}`);
   revalidatePath("/audit");
   return { ok: true };
 }
@@ -278,7 +545,7 @@ export async function approveDocumentVersion(input: {
     return { ok: false, error: "Version state changed — refresh and retry." };
   }
 
-  await db.insert(auditEvents).values({
+  await appendAuditEvent({
     actorId: actor,
     action: "version_approved",
     entityType: "document_version",
@@ -347,7 +614,7 @@ export async function rejectDocumentVersion(input: {
     return { ok: false, error: "Version state changed — refresh and retry." };
   }
 
-  await db.insert(auditEvents).values({
+  await appendAuditEvent({
     actorId: actor,
     action: "version_rejected",
     entityType: "document_version",
@@ -406,7 +673,7 @@ export async function reopenRejectedVersion(input: {
     return { ok: false, error: "Version state changed — refresh and retry." };
   }
 
-  await db.insert(auditEvents).values({
+  await appendAuditEvent({
     actorId: actor,
     action: "version_reopened_to_draft",
     entityType: "document_version",
@@ -455,12 +722,23 @@ export async function updateVersionDraftContent(input: {
     const actor = input.actorId.trim() || "reviewer@demo.local";
     const content = input.content;
 
+    /** Cap stored bodies so audit JSONB + hash input stay bounded (demo). */
+    const AUDIT_BODY_CAP = 80_000;
+    const priorBody =
+      v.content.length > AUDIT_BODY_CAP ? v.content.slice(0, AUDIT_BODY_CAP) : v.content;
+    const newBody =
+      content.length > AUDIT_BODY_CAP ? content.slice(0, AUDIT_BODY_CAP) : content;
+
     await db
       .update(documentVersions)
-      .set({ content })
+      .set({
+        content,
+        /** Enables redline vs prior save when there is no parent / older sibling version. */
+        redlineAnchorContent: v.content,
+      })
       .where(eq(documentVersions.id, input.versionId));
 
-    await db.insert(auditEvents).values({
+    await appendAuditEvent({
       actorId: actor,
       action: "document_version_content_updated",
       entityType: "document_version",
@@ -470,6 +748,10 @@ export async function updateVersionDraftContent(input: {
         documentId: v.documentId,
         priorLength: v.content.length,
         newLength: content.length,
+        priorBody,
+        newBody,
+        priorBodyTruncated: v.content.length > AUDIT_BODY_CAP,
+        newBodyTruncated: content.length > AUDIT_BODY_CAP,
       },
     });
 
@@ -551,7 +833,7 @@ export async function validateIxbrlDraftsForVersion(versionId: string): Promise<
           evidenceNote: "Auto-checked when all draft facts passed demo validation.",
         })
         .where(eq(versionChecklistItems.id, ixItem.id));
-      await db.insert(auditEvents).values({
+      await appendAuditEvent({
         actorId: "ixbrl-validator@demo.local",
         action: "checklist_item_updated",
         entityType: "checklist_item",

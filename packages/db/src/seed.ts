@@ -173,6 +173,7 @@ async function main() {
   const mod = await import("./index.js");
   const {
     db,
+    appendAuditEvent,
     companies,
     documentVersions,
     documents,
@@ -531,8 +532,13 @@ async function main() {
     },
   ]).onConflictDoNothing();
 
-  await db.insert(auditEvents).values([
-    {
+  const [seedAuditHead] = await db
+    .select({ id: auditEvents.id })
+    .from(auditEvents)
+    .where(eq(auditEvents.id, WF_AUDIT_1))
+    .limit(1);
+  if (!seedAuditHead) {
+    await appendAuditEvent({
       id: WF_AUDIT_1,
       actorId: "seed@demo.local",
       action: "workflow_run_started",
@@ -542,16 +548,22 @@ async function main() {
         templateId: WF_TEMPLATE,
         documentVersionId: VER_RISK_V2,
       },
-    },
-    {
+    });
+    await appendAuditEvent({
       id: WF_AUDIT_2,
       actorId: "legal@demo.local",
       action: "step_status_changed",
       entityType: "step_execution",
       entityId: WF_STEP_LEGAL,
-      payload: { runId: WF_RUN_RISK_V2, status: "running" },
-    },
-  ]).onConflictDoNothing();
+      payload: {
+        runId: WF_RUN_RISK_V2,
+        nodeId: WF_NODE_LEGAL,
+        previousStatus: "pending",
+        newStatus: "running",
+        comment: null,
+      },
+    });
+  }
 
   await db
     .insert(compliancePolicies)

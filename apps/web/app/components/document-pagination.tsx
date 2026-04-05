@@ -8,8 +8,14 @@ function buildHref(
   page: number,
   perPage: number,
   defaultPerPage: number,
+  extraQuery?: Record<string, string>,
 ): string {
   const params = new URLSearchParams();
+  if (extraQuery) {
+    for (const [k, v] of Object.entries(extraQuery)) {
+      if (v) params.set(k, v);
+    }
+  }
   if (page > 1) params.set("page", String(page));
   if (perPage !== defaultPerPage) {
     params.set("perPage", String(perPage));
@@ -50,6 +56,8 @@ type DocumentPaginationProps = {
   zeroStateMessage?: string;
   /** Accessible name for the page-number nav. */
   navAriaLabel?: string;
+  /** Preserved on every page link (e.g. audit filters: runId, entityType). */
+  extraQuery?: Record<string, string>;
 };
 
 export function DocumentPagination({
@@ -60,6 +68,7 @@ export function DocumentPagination({
   defaultPerPage = DEFAULT_DOCUMENT_PAGE_SIZE,
   zeroStateMessage = "No results",
   navAriaLabel = "Pages",
+  extraQuery,
 }: DocumentPaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(page, totalPages);
@@ -85,7 +94,13 @@ export function DocumentPagination({
           ) : (
             <Link
               className={styles.paginationLink}
-              href={buildHref(basePath, safePage - 1, perPage, defaultPerPage)}
+              href={buildHref(
+                basePath,
+                safePage - 1,
+                perPage,
+                defaultPerPage,
+                extraQuery,
+              )}
               scroll={false}
             >
               Previous
@@ -100,7 +115,7 @@ export function DocumentPagination({
               ) : (
                 <Link
                   key={n}
-                  href={buildHref(basePath, n, perPage, defaultPerPage)}
+                  href={buildHref(basePath, n, perPage, defaultPerPage, extraQuery)}
                   scroll={false}
                   className={
                     n === safePage
@@ -123,7 +138,13 @@ export function DocumentPagination({
           ) : (
             <Link
               className={styles.paginationLink}
-              href={buildHref(basePath, safePage + 1, perPage, defaultPerPage)}
+              href={buildHref(
+                basePath,
+                safePage + 1,
+                perPage,
+                defaultPerPage,
+                extraQuery,
+              )}
               scroll={false}
             >
               Next

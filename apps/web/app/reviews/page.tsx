@@ -10,7 +10,7 @@ import styles from "../disclosure.module.css";
 
 export const dynamic = "force-dynamic";
 
-const REVIEW_QUEUE_PAGE_SIZE = 15;
+const REVIEW_QUEUE_PAGE_SIZE = 8;
 
 type PageProps = {
   searchParams: Promise<{ page?: string; perPage?: string }>;
@@ -123,43 +123,45 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
             >
               Queue listing
             </div>
-            <table
-              className={styles.reviewQueueTable}
-              aria-label="Queue listing"
-            >
-            <thead>
-              <tr>
-                <th>Document</th>
-                <th>Version</th>
-                <th>Status</th>
-                <th>Fund</th>
-                <th>Open required QA</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {versions.map(({ v, d, f }) => (
-                <tr key={v.id}>
-                  <td>{d.title}</td>
-                  <td>{v.version}</td>
-                  <td>{v.status.replaceAll("_", " ")}</td>
-                  <td>
-                    {f.name}
-                    {f.ticker ? ` (${f.ticker})` : ""}
-                  </td>
-                  <td>{openByVersion.get(v.id) ?? 0}</td>
-                  <td>
-                    <Link
-                      href={`/documents/${d.id}/versions/${v.id}`}
-                      className={styles.inlineLink}
-                    >
-                      QA workspace
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            <div className={styles.innerTableBleed}>
+              <table
+                className={styles.reviewQueueTable}
+                aria-label="Queue listing"
+              >
+                <thead>
+                  <tr>
+                    <th>Document</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Fund</th>
+                    <th>Open required QA</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {versions.map(({ v, d, f }) => (
+                    <tr key={v.id}>
+                      <td>{d.title}</td>
+                      <td>{v.version}</td>
+                      <td>{v.status.replaceAll("_", " ")}</td>
+                      <td>
+                        {f.name}
+                        {f.ticker ? ` (${f.ticker})` : ""}
+                      </td>
+                      <td>{openByVersion.get(v.id) ?? 0}</td>
+                      <td>
+                        <Link
+                          href={`/documents/${d.id}/versions/${v.id}`}
+                          className={styles.inlineLink}
+                        >
+                          QA workspace
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </main>

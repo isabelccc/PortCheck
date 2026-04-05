@@ -107,15 +107,31 @@ export default async function WorkflowRunPage({ params }: PageProps) {
         <Link href="/runs" className={styles.back}>
           ← Runs
         </Link>
-        <h1 className={styles.title}>Workflow run</h1>
-        <p className={styles.contextLine}>
-          <strong>{row.template.name}</strong>
-          <span className={styles.subtitleSep}>·</span> Run{" "}
-          <span className={styles.slug} style={{ fontSize: "0.75rem" }}>
-            {runId.slice(0, 8)}…
-          </span>
-        </p>
-        <p className={styles.subtitle} style={{ marginTop: "-0.5rem" }}>
+        <h1 className={styles.title}>{row.template.name}</h1>
+        <div className={styles.runPageToolbar}>
+          <div className={styles.runPageToolbarId}>
+            <span className={styles.runPageToolbarKicker}>Run</span>
+            <span className={styles.slug}>{runId.slice(0, 8)}…</span>
+          </div>
+          <nav
+            className={styles.runPageToolbarNav}
+            aria-label="Links for this run"
+          >
+            <Link
+              href={`/documents/${row.document.id}/versions/${row.version.id}`}
+              className={styles.runPageLink}
+            >
+              Workspace
+            </Link>
+            <Link
+              href={`/audit?q=${encodeURIComponent(runId)}`}
+              className={styles.runPageLink}
+            >
+              Audit
+            </Link>
+          </nav>
+        </div>
+        <p className={styles.subtitle} style={{ marginTop: 0 }}>
           <Link
             href={`/documents/${row.document.id}`}
             className={styles.inlineLink}
@@ -132,15 +148,7 @@ export default async function WorkflowRunPage({ params }: PageProps) {
               ) : null}
             </>
           ) : null}
-          <span className={styles.subtitleSep}>·</span> version{" "}
-          {row.version.version}
-          <span className={styles.subtitleSep}>·</span>{" "}
-          <Link
-            href={`/documents/${row.document.id}/versions/${row.version.id}`}
-            className={styles.inlineLink}
-          >
-            Filing QA &amp; redlines workspace
-          </Link>
+          <span className={styles.subtitleSep}>·</span> v{row.version.version}
         </p>
 
         <WorkflowRunClient
@@ -158,15 +166,6 @@ export default async function WorkflowRunPage({ params }: PageProps) {
             comment: s.comment,
           }))}
         />
-
-        <p className={styles.workflowFooter}>
-          <Link
-            href={`/audit?runId=${encodeURIComponent(runId)}`}
-            className={styles.inlineLink}
-          >
-            Filter audit log for this run →
-          </Link>
-        </p>
       </main>
     </div>
   );
