@@ -166,36 +166,32 @@ export default async function DocumentDetailPage({
                   </div>
                   {v.parentVersionId ? (
                     <div className={styles.parentMeta}>
-                      Parent version: {v.parentVersionId}
+                      Parent{" "}
+                      <code className={styles.policyCode}>
+                        {v.parentVersionId.slice(0, 8)}…
+                      </code>
                     </div>
                   ) : null}
                   <div className={styles.versionWorkflowLinks}>
-                    <Link
-                      href={`/documents/${documentId}/versions/${v.id}`}
-                      className={styles.inlineLink}
-                    >
-                      Filing QA workspace
+                    <Link href={`/documents/${documentId}/versions/${v.id}`}>
+                      Workspace
                     </Link>
                     {runByVersionId.has(v.id) ? (
                       <>
-                        <span className={styles.subtitleSep}> · </span>
-                        <Link
-                          href={`/runs/${runByVersionId.get(v.id)}`}
-                          className={styles.inlineLink}
-                        >
-                          Workflow run
-                        </Link>
-                        <span className={styles.subtitleSep}> · </span>
-                        <Link
-                          href={`/audit?documentVersionId=${encodeURIComponent(v.id)}`}
-                          className={styles.inlineLink}
-                        >
-                          Audit
-                        </Link>
+                        <span className={styles.versionWorkflowSep}>·</span>
+                        <Link href={`/runs/${runByVersionId.get(v.id)}`}>Run</Link>
                       </>
                     ) : null}
+                    <span className={styles.versionWorkflowSep}>·</span>
+                    <Link
+                      href={`/audit?documentVersionId=${encodeURIComponent(v.id)}`}
+                    >
+                      Audit
+                    </Link>
                   </div>
-                  <pre className={styles.contentBlock}>{v.content}</pre>
+                  <pre className={`${styles.contentBlock} ${styles.versionCardContent}`}>
+                    {v.content}
+                  </pre>
                 </article>
               ))}
             </div>

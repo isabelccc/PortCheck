@@ -1,96 +1,76 @@
-# Disclosure DAG demo
+# Disclosure workflow & audit trail (portfolio)
 
-# Disclosure DAG Demo
+**Versioned disclosure documents · DAG-based approvals · append-only audit · QA gating enforced on the server**
 
-A monorepo prototype for issuer-side ETF-style disclosure operations. The system models versioned fund documents, DAG-based approval workflows, append-only audit events, a per-version filing QA workspace, and a role-aware review queue.
+The application lives in **`disclosure-dag-demo/`**. This file is the GitHub landing README for the parent folder (historically named `port-check` on some remotes). If your repo is still called something like “PortCheck”, consider **renaming it** (e.g. `disclosure-dag-demo`, `filing-workflow-demo`) and updating the **GitHub About** description and **Vercel** project name so they match this project—not a port scanner.
 
-It is designed to demonstrate auditability, controlled state transitions, and review workflows in regulated environments. Seed data and validation checks are illustrative only.
+---
 
+## What this is (for hiring managers)
 
+A **Next.js + Postgres** slice of **issuer-style disclosure operations**: funds and documents, **immutable-style version history**, a **parallel review DAG** (React Flow), and a **Filing QA workspace** with checklist, redlines, and export stubs. Mutations and approvals go through **Server Actions**; sensitive rules are **not** UI-only.
 
-## Features
+**Resume-ready one-liner:**
 
-- **Funds & documents** — Browse funds, documents, and paginated **document versions** (`draft` / `in_review` / `approved`) with optional **parent version** lineage.
-- **Workflow runs** — Each run is tied to a **document version**. Steps are stored in `step_executions` and visualized with **React Flow** (template nodes + edges).
-- **Rules engine** — Shared TypeScript module validates transitions against the DAG (upstream steps must be `completed` or `skipped` before downstream advances). Enforced on the **server**; the UI disables invalid actions.
-- **Manual & auto-advance** — Per-step status buttons; optional **auto-run** applies waves of `pending → running` then `running → completed` under the same rules. **Approval** steps require an **evidence note** when completing manually; auto-run injects a demo-only comment for approvals.
-- **Audit trail** — `/audit` lists append-only `audit_events` (filters by run, document version id, entity type). Workflow, checklist, and content updates emit events.
-- **Filing QA workspace** — `/documents/[documentId]/versions/[versionId]`: edit body (**admin** only, non-approved versions), **line diff vs parent**, **QA checklist** (reviewer/admin), **iXBRL fact drafts** with a **demo** validator, download **EDGAR-style HTML** via `/api/edgar/[versionId]` (reviewer/admin).
-- **Compliance hub** — `/compliance` shows seeded **compliance policies** and sets a **demo role** cookie: `viewer` (read-only workflow/checklist), `reviewer`, `admin` (+ content edit).
-- **Review queue** — `/reviews` lists versions in `draft` or `in_review` and counts open **required** checklist items.
+> Built a disclosure QA workspace with **server-enforced** checklist gates, **DAG workflow** transitions, **admin document sign-off** (`in_review` → `approved`) with **reject / reopen**, and an **append-only audit log**—Next.js 16, Drizzle, PostgreSQL.
 
-## Stack
+---
 
-- **Next.js 16** (App Router), React 19, **Server Actions**
-- **PostgreSQL** + **Drizzle ORM** (`packages/db` workspace package)
-- **Turborepo**, TypeScript, ESLint
-- **React Flow** (`@xyflow/react`), **diff** (redlines)
+## First-class approve flow (server-side)
 
-## Prerequisites
+These are enforced in **`apps/web/app/actions/`** (not just disabled buttons):
 
-- Node.js (see repo/tooling; Next 16 compatible)
-- PostgreSQL and a `DATABASE_URL` connection string
+| Gate | Behavior |
+|------|----------|
+| **Submit for review** | Blocked until all **required** checklist rows are complete (with evidence note length enforced for required items). |
+| **Workflow final approval** | Cannot mark **final approval** step `completed` unless the linked version is **`in_review`** and required checklist is still clear. |
+| **Approve version** | **Admin-only**; blocked if required QA open or (when a run exists) workflow **final approval** is not completed; requires attestation text; sets `approved`; writes **`version_approved`** audit event. |
+| **Reject / reopen** | Reviewer+admin **reject** (`in_review` → `rejected`, rationale + audit); **reopen** to `draft` for revision. |
 
-## Setup
+Full detail, stack, setup, and **architecture boundaries** (where logic is allowed to live): see **[disclosure-dag-demo/README.md](./disclosure-dag-demo/README.md)**.
 
-1. **Environment** — At the monorepo root (or where your tooling loads env), set:
+---
 
-   ```sh
-   DATABASE_URL=postgres://user:password@localhost:5432/your_db
-   ```
+## Repo layout
 
-2. **Migrate & seed** (from `packages/db`):
+| Path | Role |
+|------|------|
+| **`disclosure-dag-demo/`** | Turborepo monorepo (`apps/web`, `packages/db`, …) |
+| **`disclosure-dag-demo/apps/web`** | Next.js app |
+| **`disclosure-dag-demo/packages/db`** | Drizzle schema, migrations, seed |
 
-   ```sh
-   cd packages/db
-   npm install
-   npm run db:migrate
-   npm run db:seed
-   ```
+There is **no** `package.json` at this parent-folder root; install and scripts run from **`disclosure-dag-demo`**.
 
-3. **Install & run the web app**:
+---
 
-   ```sh
-   cd ../..   # repo root
-   npm install
-   npm run dev:web
-   ```
+## Quick start
 
-   Or from root with Turborepo: `npx turbo dev --filter=web`
+```sh
+cd disclosure-dag-demo
+npm install
 
-4. Open **http://localhost:3000** (or the port your script uses).
+# Postgres — set DATABASE_URL in disclosure-dag-demo/.env (or env)
+cd packages/db
+npm run db:migrate
+npm run db:seed
 
-## Useful commands
+cd ../..
+npm run dev:web
+```
 
-| Command | Description |
-|--------|-------------|
-| `npm run dev:web` | Dev server for `apps/web` (see root `package.json`) |
-| `npm run build` | Often run per app, e.g. `cd apps/web && npm run build` |
-| `cd packages/db && npm run db:studio` | Drizzle Studio (inspect DB) |
+Open **http://localhost:3000**. Set **reviewer** / **admin** on **Compliance** to exercise mutations and sign-off.
 
-## Repository layout
+---
 
-- `apps/web` — Next.js UI and server actions
-- `packages/db` — Drizzle schema, migrations, seed script
-- `apps/docs` — Stub docs app (original turbo template; optional)
+## Deploy (Vercel)
 
-Key app paths:
+- **Root Directory**: **`disclosure-dag-demo/apps/web`** (not the monorepo root and not `apps/` alone).
+- Set **`DATABASE_URL`** for Production (and Preview if needed). See `apps/web/vercel.json` for install/build commands.
 
-- `apps/web/app/actions/workflow.ts` — Step updates, auto waves
-- `apps/web/lib/workflow-rules-engine.ts` — DAG transition rules
-- `apps/web/lib/demo-role-server.ts` / `demo-role-constants.ts` — Demo RBAC
-- `packages/db/src/schema.ts`, `workflow.ts`, `compliance.ts` — Tables
+If the live URL still looks like `port-check.vercel.app`, rename the Vercel project or add a domain that matches the product name when you can.
+
+---
 
 ## Disclaimer
 
-Demo exports, iXBRL checks, and policies are for **illustration only**. Real regulatory filings require certified processes, correct taxonomies, and firm-specific controls.
-
-## Turborepo
-
-This repo uses [Turborepo](https://turborepo.dev). To build all packages:
-
-```sh
-npx turbo build
-```
-
-See [Turborepo docs](https://turborepo.dev/docs) for caching, filters, and remote cache.
+EDGAR / iXBRL / policy text in seed data are **illustrative**. Production filings need firm processes, certified tooling, and correct taxonomies.

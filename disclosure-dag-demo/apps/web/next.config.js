@@ -12,6 +12,12 @@ loadEnv({ path: path.join(__dirname, ".env.local") });
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@repo/db"],
+  /**
+   * Monorepo: trace `@repo/*` and shared files from repo root. Must match `turbopack.root`
+   * or Next 16 warns: "Both outputFileTracingRoot and turbopack.root are set, but they must
+   * have the same value" (seen on Vercel when only one was explicit).
+   */
+  outputFileTracingRoot: monorepoRoot,
   experimental: {
     serverActions: {
       /** Large filing bodies can exceed the default Server Actions body limit. */

@@ -94,4 +94,8 @@ export const auditEvents = pgTable("audit_events", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  /** Previous row's `integrity_record_hash` in chronological chain order (null = chain genesis). */
+  integrityPrevHash: text("integrity_prev_hash"),
+  /** SHA-256 of canonical event fields chained with `integrity_prev_hash` (tamper-evident). */
+  integrityRecordHash: text("integrity_record_hash"),
 });

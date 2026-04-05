@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  addChecklistItem,
   approveDocumentVersion,
   rejectDocumentVersion,
   reopenRejectedVersion,
+  removeUserChecklistItem,
   submitVersionForApproval,
   toggleChecklistItem,
   updateVersionDraftContent,
@@ -21,6 +23,10 @@ import {
   type DemoRole,
 } from "../../../../../lib/demo-role-constants";
 import type { VersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
+import {
+  expandRedlinePartsToSideBySideRows,
+  type RedlinePart,
+} from "../../../../../lib/redline-split-rows";
 import styles from "../../../../disclosure.module.css";
 
 export type ChecklistDTO = {
@@ -43,11 +49,25 @@ export type FactDTO = {
   validationMessage: string | null;
 };
 
-type RedlinePart = { type: "add" | "remove" | "same"; value: string };
-
 type Tab = "content" | "redline" | "checklist" | "ixbrl" | "export";
 
-type RedlineBaselineMode = "parent" | "previous" | "none";
+type DecisionMode = "reject" | "approve";
+
+type RedlineLayout = "inline" | "split";
+
+/** Seed: Corgi Innovation ETF → Risk factors → version 2025.04.1 (has `ixbrl_fact_drafts` rows). */
+const SEED_IXBRL_DOC_ID = "d0000001-0000-4000-8000-000000000001";
+const SEED_IXBRL_VERSION_ID = "b0000002-0000-4000-8000-000000000002";
+
+/**
+ * TODO: dedupe — keep in sync with `USER_CHECKLIST_CODE_PREFIX` in
+ * `app/actions/compliance-workspace.ts` (Next "use server" files cannot export it).
+ */
+const USER_CHECKLIST_CODE_PREFIX = "user_";
+
+type Flash = { tone: "success" | "error"; text: string };
+
+type RedlineBaselineMode = "parent" | "previous" | "anchor" | "none";
 
 type Props = {
   documentId: string;
@@ -84,26 +104,53 @@ export function VersionWorkspaceClient({
   approvalReadiness,
 }: Props) {
   const router = useRouter();
+
+  /** Lets success copy render before `router.refresh()` remounts client state (App Router). */
+  function scheduleRefresh() {
+    window.setTimeout(() => {
+      router.refresh();
+    }, 450);
+  }
   const [tab, setTab] = useState<Tab>("content");
+  const [redlineLayout, setRedlineLayout] = useState<RedlineLayout>("inline");
   const [content, setContent] = useState(initialContent);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [flash, setFlash] = useState<Flash | null>(null);
   const [pending, startTransition] = useTransition();
   const [approveNote, setApproveNote] = useState("");
   const [rejectNote, setRejectNote] = useState("");
+  const [decisionMode, setDecisionMode] = useState<DecisionMode>("approve");
+  const [newCheckLabel, setNewCheckLabel] = useState("");
+  const [newCheckCategory, setNewCheckCategory] = useState("qa_content");
+  const [newCheckRequired, setNewCheckRequired] = useState(true);
 
   useEffect(() => {
     setContent(initialContent);
   }, [initialContent]);
+
+  /** Success toasts (e.g. “Draft body saved.”) auto-dismiss so they never sit forever. */
+  useEffect(() => {
+    if (!flash || flash.tone !== "success") return;
+    const id = window.setTimeout(() => {
+      setFlash(null);
+    }, 3000);
+    return () => window.clearTimeout(id);
+  }, [flash]);
 
   const canChecklist = canMutateChecklist(demoRole);
   const canExport = canExportFiling(demoRole);
   const canApprove = canApproveDocumentVersion(demoRole);
   const canReject = canRejectDocumentVersion(demoRole);
   const canReopen = canReopenRejectedVersion(demoRole);
+  const canEditChecklistStructure = canChecklist && status !== "approved";
 
   const requiredOpen = useMemo(() => {
     return checklist.filter((c) => c.required && !c.completedAt);
   }, [checklist]);
+
+  const redlineSplitRows = useMemo(
+    () => expandRedlinePartsToSideBySideRows(redline),
+    [redline],
+  );
 
   const checklistByCategory = useMemo(() => {
     const m = new Map<string, ChecklistDTO[]>();
@@ -120,7 +167,7 @@ export function VersionWorkspaceClient({
     "Acknowledged in filing QA workspace with control evidence sufficient for audit trail (demo).";
 
   async function onToggleCheck(itemId: string, completed: boolean) {
-    setMsg(null);
+    setFlash(null);
     startTransition(async () => {
       const res = await toggleChecklistItem({
         itemId,
@@ -129,15 +176,51 @@ export function VersionWorkspaceClient({
         evidenceNote: completed ? DEFAULT_EVIDENCE_REQUIRED : null,
       });
       if (!res.ok) {
-        setMsg(res.error);
+        setFlash({ tone: "error", text: res.error });
         return;
       }
       router.refresh();
     });
   }
 
+  function onAddChecklistRow() {
+    setFlash(null);
+    startTransition(async () => {
+      const res = await addChecklistItem({
+        versionId,
+        label: newCheckLabel,
+        category: newCheckCategory,
+        required: newCheckRequired,
+        actorId: "reviewer@demo.local",
+      });
+      if (!res.ok) {
+        setFlash({ tone: "error", text: res.error });
+        return;
+      }
+      setNewCheckLabel("");
+      setFlash({ tone: "success", text: "Checklist row added." });
+      scheduleRefresh();
+    });
+  }
+
+  function onRemoveUserChecklist(itemId: string) {
+    setFlash(null);
+    startTransition(async () => {
+      const res = await removeUserChecklistItem({
+        itemId,
+        actorId: "reviewer@demo.local",
+      });
+      if (!res.ok) {
+        setFlash({ tone: "error", text: res.error });
+        return;
+      }
+      setFlash({ tone: "success", text: "Checklist row removed." });
+      scheduleRefresh();
+    });
+  }
+
   async function onSaveContent() {
-    setMsg(null);
+    setFlash(null);
     startTransition(async () => {
       try {
         const res = await updateVersionDraftContent({
@@ -146,59 +229,72 @@ export function VersionWorkspaceClient({
           actorId: "reviewer@demo.local",
         });
         if (!res.ok) {
-          setMsg(res.error);
+          setFlash({ tone: "error", text: res.error });
           return;
         }
-        setMsg("Draft body saved.");
-        router.refresh();
+        setFlash({ tone: "success", text: "Draft body saved." });
+        scheduleRefresh();
       } catch (e) {
         const message = e instanceof Error ? e.message : "Save failed";
-        setMsg(message);
+        setFlash({ tone: "error", text: message });
       }
     });
   }
 
   async function onSubmitForApproval() {
-    setMsg(null);
+    setFlash(null);
     startTransition(async () => {
       const res = await submitVersionForApproval({
         versionId,
         actorId: "reviewer@demo.local",
       });
       if (!res.ok) {
-        setMsg(res.error);
+        setFlash({ tone: "error", text: res.error });
         return;
       }
       if ("alreadyInReview" in res && res.alreadyInReview) {
-        setMsg("This version is already in review.");
+        setFlash({
+          tone: "success",
+          text:
+            "workflowStarted" in res && res.workflowStarted
+              ? "Workflow run created from the default template — DAG is linked."
+              : "This version is already in review.",
+        });
       } else {
-        setMsg("Submitted for review — document version status is now in_review.");
+        setFlash({
+          tone: "success",
+          text: "Submitted for review — document version status is now in_review.",
+        });
       }
-      router.refresh();
+      scheduleRefresh();
     });
   }
 
   async function onValidateIxbrl() {
-    setMsg(null);
+    setFlash(null);
     startTransition(async () => {
       const res = await validateIxbrlDraftsForVersion(versionId);
       if (!res.ok) {
-        setMsg(res.error);
+        setFlash({ tone: "error", text: res.error });
         return;
       }
       if (!res.allValid) {
-        setMsg(
-          "Some facts failed demo validation — fix QName/value issues and re-run.",
-        );
+        setFlash({
+          tone: "error",
+          text: "Some facts failed demo validation — fix QName/value issues and re-run.",
+        });
       } else {
-        setMsg("All draft facts passed demo validation; checklist updated if applicable.");
+        setFlash({
+          tone: "success",
+          text: "All draft facts passed demo validation; checklist updated if applicable.",
+        });
       }
-      router.refresh();
+      scheduleRefresh();
     });
   }
 
   async function onApproveVersion() {
-    setMsg(null);
+    setFlash(null);
     startTransition(async () => {
       const res = await approveDocumentVersion({
         versionId,
@@ -206,17 +302,20 @@ export function VersionWorkspaceClient({
         rationale: approveNote,
       });
       if (!res.ok) {
-        setMsg(res.error);
+        setFlash({ tone: "error", text: res.error });
         return;
       }
       setApproveNote("");
-      setMsg("Version approved — status is now approved (formal sign-off recorded).");
-      router.refresh();
+      setFlash({
+        tone: "success",
+        text: "Version approved — status is now approved (formal sign-off recorded).",
+      });
+      scheduleRefresh();
     });
   }
 
   async function onRejectVersion() {
-    setMsg(null);
+    setFlash(null);
     startTransition(async () => {
       const res = await rejectDocumentVersion({
         versionId,
@@ -224,77 +323,79 @@ export function VersionWorkspaceClient({
         rationale: rejectNote,
       });
       if (!res.ok) {
-        setMsg(res.error);
+        setFlash({ tone: "error", text: res.error });
         return;
       }
       setRejectNote("");
-      setMsg("Version rejected — moved to rejected until reopened as draft.");
-      router.refresh();
+      setFlash({
+        tone: "success",
+        text: "Version rejected — moved to rejected until reopened as draft.",
+      });
+      scheduleRefresh();
     });
   }
 
   async function onReopenRejected() {
-    setMsg(null);
+    setFlash(null);
     startTransition(async () => {
       const res = await reopenRejectedVersion({
         versionId,
         actorId: "reviewer@demo.local",
       });
       if (!res.ok) {
-        setMsg(res.error);
+        setFlash({ tone: "error", text: res.error });
         return;
       }
-      setMsg("Reopened as draft — you may edit and resubmit for review.");
-      router.refresh();
+      setFlash({
+        tone: "success",
+        text: "Reopened as draft — you may edit and resubmit for review.",
+      });
+      scheduleRefresh();
     });
   }
 
   return (
     <div>
-      <p className={styles.workspaceDisclaimer}>
-        <strong>Demo scope.</strong> This workspace illustrates filing QA, redlines,
-        checklist discipline, and a stub iXBRL / EDGAR-style export. It is{" "}
-        <strong>not</strong> SEC EDGAR Live, not legal advice, and not submission-grade
-        Inline XBRL.
-      </p>
-
       <div
-        className={styles.workflowProgressSection}
-        style={{ marginBottom: "1rem" }}
+        className={styles.workspaceGatesCard}
         aria-label="Process control and gates"
       >
         <div className={styles.workflowProgressHeader}>
           <div>
-            <h2 className={styles.workflowProgressTitle} style={{ fontSize: "1rem" }}>
-              QA gates &amp; approvals
-            </h2>
-            <p className={styles.workflowPanelHint} style={{ margin: "0.25rem 0 0" }}>
-              Required checklist + workflow final step must pass before{" "}
-              <strong>admin</strong> document sign-off. Line reviewers can{" "}
-              <strong>reject</strong> back from queue.
-            </p>
+            <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
+              Process
+            </div>
           </div>
           <div className={styles.workflowProgressFraction}>
             <span className={styles.workflowProgressBig}>
-              {approvalReadiness.requiredDone}/{approvalReadiness.requiredTotal || "—"}
+              {approvalReadiness.requiredDone}/{approvalReadiness.requiredTotal}
             </span>
-            <span className={styles.workflowProgressSmall}>required QA done</span>
+            <span className={styles.workflowProgressSmall}>required QA</span>
           </div>
         </div>
         <div
           className={styles.workspaceQaBarTrack}
           role="progressbar"
-          aria-valuenow={approvalReadiness.checklistProgressPct}
+          aria-valuenow={
+            approvalReadiness.requiredTotal === 0
+              ? 100
+              : approvalReadiness.checklistProgressPct
+          }
           aria-valuemin={0}
           aria-valuemax={100}
         >
           <div
             className={styles.workspaceQaBarFill}
             style={{
-              width: `${approvalReadiness.requiredTotal === 0 ? 0 : approvalReadiness.checklistProgressPct}%`,
+              width: `${approvalReadiness.requiredTotal === 0 ? 100 : approvalReadiness.checklistProgressPct}%`,
             }}
           />
         </div>
+        {approvalReadiness.requiredTotal === 0 ? (
+          <p className={styles.workspaceCheckMeta} style={{ margin: "0.35rem 0 0" }}>
+            No required checklist rows.
+          </p>
+        ) : null}
         <div className={styles.workspaceQaCategoryRow}>
           <span>
             Workflow:{" "}
@@ -317,7 +418,7 @@ export function VersionWorkspaceClient({
                 ) : null}
               </>
             ) : (
-              "no run on this version"
+              <span className={styles.auditCellMuted}>no run linked</span>
             )}
           </span>
           <span>
@@ -325,30 +426,33 @@ export function VersionWorkspaceClient({
           </span>
         </div>
 
-        {status === "draft" ? (
-          <p className={styles.workflowPanelHint} style={{ marginTop: "0.75rem" }} role="status">
-            <strong>Submit</strong> blocked while{" "}
+        {status === "draft" && requiredOpen.length > 0 ? (
+          <p className={styles.workflowError} style={{ marginTop: "0.5rem" }} role="status">
             <strong>{requiredOpen.length}</strong> required checklist item
-            {requiredOpen.length !== 1 ? "s" : ""} incomplete.
-            {requiredOpen.length === 0
-              ? " You may submit for review."
-              : " Finish QA tab first."}
-          </p>
-        ) : null}
-        {status === "in_review" ? (
-          <p className={styles.workflowPanelHint} style={{ marginTop: "0.75rem" }} role="status">
-            In <strong>review queue</strong>. Admin sign-off requires all required QA
-            items + workflow <em>final approval</em> complete.
+            {requiredOpen.length !== 1 ? "s" : ""} open — finish in <strong>Checklist</strong>{" "}
+            tab.
           </p>
         ) : null}
         {status === "rejected" ? (
-          <p className={styles.workflowError} style={{ marginTop: "0.75rem" }} role="status">
-            <strong>Rejected</strong> — reopen as draft to revise, then resubmit.
+          <p className={styles.workflowError} style={{ marginTop: "0.5rem" }} role="status">
+            Rejected — reopen as draft to revise.
           </p>
         ) : null}
         {status === "approved" ? (
-          <p className={styles.workflowPanelHint} style={{ marginTop: "0.75rem" }} role="status">
-            <strong>Approved</strong> — version locked for editing; audit retains history.
+          <p className={styles.workspaceCheckMeta} style={{ marginTop: "0.5rem" }}>
+            Approved
+            {approvalReadiness.runId ? (
+              <>
+                {" "}
+                ·{" "}
+                <Link
+                  href={`/runs/${approvalReadiness.runId}`}
+                  className={styles.inlineLink}
+                >
+                  DAG
+                </Link>
+              </>
+            ) : null}
           </p>
         ) : null}
 
@@ -369,17 +473,25 @@ export function VersionWorkspaceClient({
                 disabled={pending || requiredOpen.length > 0}
                 title={
                   requiredOpen.length > 0
-                    ? "Complete all required checklist items first."
-                    : "draft → in_review"
+                    ? "Complete required checklist items first."
+                    : undefined
                 }
                 onClick={() => void onSubmitForApproval()}
               >
                 Submit for approval
               </button>
-              <span className={styles.workspaceCheckMeta}>
-                Enters review queue · audit event
-              </span>
             </>
+          ) : null}
+          {status === "in_review" && !runId && canChecklist ? (
+            <button
+              type="button"
+              className={styles.workflowAutoRunBtn}
+              disabled={pending}
+              title="Create workflow run for this version"
+              onClick={() => void onSubmitForApproval()}
+            >
+              Start workflow run
+            </button>
           ) : null}
           {status === "draft" && !canChecklist ? (
             <p className={styles.workflowViewerBanner} style={{ margin: 0 }}>
@@ -393,31 +505,58 @@ export function VersionWorkspaceClient({
         </div>
 
         {status === "in_review" ? (
-          <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid var(--pilot-line)" }}>
+          <div className={styles.workspaceGatesDivide}>
             <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
-              Document decision
+              Decision
             </div>
             {!canReject && !canApprove ? (
               <p className={styles.workflowViewerBanner}>
-                Read-only — switch role on{" "}
+                Read-only —{" "}
                 <a href="/compliance" className={styles.inlineLink}>
                   Compliance
                 </a>
-                .
               </p>
             ) : null}
-            {canReject ? (
-              <div style={{ marginBottom: "0.75rem" }}>
+            {canReject && canApprove ? (
+              <div
+                className={styles.workspaceDecisionSegment}
+                role="tablist"
+                aria-label="Reject or approve"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={decisionMode === "reject"}
+                  data-active={decisionMode === "reject" ? "true" : "false"}
+                  className={styles.workspaceDecisionSegmentBtn}
+                  onClick={() => setDecisionMode("reject")}
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={decisionMode === "approve"}
+                  data-active={decisionMode === "approve" ? "true" : "false"}
+                  className={styles.workspaceDecisionSegmentBtn}
+                  onClick={() => setDecisionMode("approve")}
+                >
+                  Approve
+                </button>
+              </div>
+            ) : null}
+            {canReject && (!canApprove || decisionMode === "reject") ? (
+              <div>
                 <label className={styles.workflowEvidenceField}>
                   <span className={styles.workflowEvidenceLabel}>
-                    Rejection rationale (reviewer/admin, min 24 chars)
+                    Reject note (≥24 characters)
                   </span>
                   <textarea
                     className={styles.workflowEvidenceTextarea}
-                    rows={2}
+                    rows={3}
                     value={rejectNote}
                     onChange={(e) => setRejectNote(e.target.value)}
-                    placeholder="e.g. Material cross-reference errors; must correct before supervisory sign-off."
+                    placeholder="Why this version is being rejected."
                   />
                 </label>
                 <button
@@ -426,22 +565,22 @@ export function VersionWorkspaceClient({
                   disabled={pending || rejectNote.trim().length < 24}
                   onClick={() => void onRejectVersion()}
                 >
-                  Reject version
+                  Reject
                 </button>
               </div>
             ) : null}
-            {canApprove ? (
+            {canApprove && (!canReject || decisionMode === "approve") ? (
               <div>
                 <label className={styles.workflowEvidenceField}>
                   <span className={styles.workflowEvidenceLabel}>
-                    Approval attestation (admin only, min 24 chars)
+                    Sign-off note (≥24 characters)
                   </span>
                   <textarea
                     className={styles.workflowEvidenceTextarea}
                     rows={3}
                     value={approveNote}
                     onChange={(e) => setApproveNote(e.target.value)}
-                    placeholder="e.g. I attest required QA and workflow final approval are complete; no blockers known."
+                    placeholder="Brief attestation for the audit log."
                   />
                 </label>
                 <button
@@ -458,20 +597,15 @@ export function VersionWorkspaceClient({
                     approvalReadiness.requiredOpen > 0
                       ? "Close required checklist items."
                       : approvalReadiness.runId && !approvalReadiness.finalApprovalComplete
-                        ? "Complete final workflow approval on the linked run."
+                        ? "Complete final step on linked DAG run."
                         : undefined
                   }
                   onClick={() => void onApproveVersion()}
                 >
-                  Approve version (sign-off)
+                  Approve (sign-off)
                 </button>
               </div>
-            ) : (
-              <p className={styles.workflowPanelHint} style={{ marginTop: "0.35rem" }}>
-                Formal <strong>Approve version</strong> is restricted to the{" "}
-                <strong>admin</strong> role (segregation of duties).
-              </p>
-            )}
+            ) : null}
           </div>
         ) : null}
 
@@ -492,11 +626,11 @@ export function VersionWorkspaceClient({
       <div className={styles.workspaceTabs} role="tablist" aria-label="Workspace sections">
         {(
           [
-            ["content", "Content & edit"],
-            ["redline", "Redlines vs parent"],
-            ["checklist", "QA checklist"],
-            ["ixbrl", "iXBRL drafts"],
-            ["export", "EDGAR-style export"],
+            ["content", "Content"],
+            ["redline", "Redline"],
+            ["checklist", "Checklist"],
+            ["ixbrl", "iXBRL"],
+            ["export", "Export"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -513,24 +647,30 @@ export function VersionWorkspaceClient({
         ))}
       </div>
 
-      {msg ? (
-        <p className={styles.workflowError} role="alert">
-          {msg}
+      {flash ? (
+        <p
+          className={
+            flash.tone === "success"
+              ? styles.workflowFlashSuccess
+              : styles.workflowError
+          }
+          role={flash.tone === "success" ? "status" : "alert"}
+        >
+          {flash.text}
         </p>
       ) : null}
 
       <div className={styles.workspaceTabPanel} role="tabpanel">
         {tab === "content" ? (
           <div>
-            <p className={styles.workflowPanelHint}>
-              Document: <strong>{docTitle}</strong> · Version{" "}
-              <strong>{versionLabel}</strong> · Status <strong>{status}</strong>
+            <p className={styles.workspaceCheckMeta} style={{ margin: "0 0 0.65rem" }}>
+              <strong>{status.replaceAll("_", " ")}</strong>
               {runId ? (
                 <>
                   {" "}
                   ·{" "}
                   <Link href={`/runs/${runId}`} className={styles.inlineLink}>
-                    Workflow run
+                    Run
                   </Link>
                 </>
               ) : null}
@@ -555,20 +695,18 @@ export function VersionWorkspaceClient({
                   </button>
                   {status === "approved" ? (
                     <span className={styles.workspaceCheckMeta} style={{ marginLeft: "0.75rem" }}>
-                      Approved versions are locked.
+                      Locked.
                     </span>
                   ) : null}
                 </div>
               </>
             ) : (
               <>
-                <p className={styles.workflowPanelHint}>
-                  <strong>Reviewer</strong> or <strong>admin</strong> can edit body text. Current
-                  role: <strong>{demoRole}</strong> (
+                <p className={styles.workflowViewerBanner}>
+                  Read-only ({demoRole}) —{" "}
                   <a href="/compliance" className={styles.inlineLink}>
-                    change
+                    Compliance
                   </a>
-                  ).
                 </p>
                 <pre className={styles.contentBlock}>{initialContent}</pre>
               </>
@@ -577,63 +715,146 @@ export function VersionWorkspaceClient({
         ) : null}
 
         {tab === "redline" ? (
-          <div>
+          <div className={styles.workspaceGatesCard} style={{ marginBottom: 0 }}>
+            <div className={styles.sectionLabel} style={{ marginTop: 0 }}>
+              Redline
+            </div>
             {redlineBaselineMode === "none" ? (
-              <p className={styles.workflowPanelHint}>
-                No baseline revision — this is the first version on the document (or
-                the parent link is missing). Redline below treats the prior text as
-                empty (all <strong>additions</strong>). Add{" "}
-                <code>parent_version_id</code> or create an older version to
-                compare.
+              <p className={styles.workspaceCheckMeta} style={{ margin: "0.35rem 0 0" }}>
+                No baseline yet — save draft once or add a parent / older version for
+                lineage.
+              </p>
+            ) : null}
+            {redlineBaselineMode === "anchor" ? (
+              <p className={styles.workspaceCheckMeta} style={{ margin: "0.35rem 0 0" }}>
+                vs last saved body on this version.
               </p>
             ) : null}
             {redlineBaselineMode === "previous" ? (
-              <p className={styles.workflowPanelHint}>
-                No <code>parent_version_id</code> on this row — comparing to the{" "}
-                <strong>previous revision</strong> on file
+              <p className={styles.workspaceCheckMeta} style={{ margin: "0.35rem 0 0" }}>
+                vs previous revision
                 {redlineBaselineVersionLabel ? (
                   <>
                     {" "}
-                    (<strong>{redlineBaselineVersionLabel}</strong>)
+                    <strong>{redlineBaselineVersionLabel}</strong>
                   </>
                 ) : null}
-                , ordered by creation time.
+                .
               </p>
             ) : null}
             {redlineBaselineMode === "parent" && redlineBaselineVersionLabel ? (
-              <p className={styles.workflowPanelHint}>
-                Compared to linked parent version{" "}
-                <strong>{redlineBaselineVersionLabel}</strong> (
-                <code>parent_version_id</code>).
+              <p className={styles.workspaceCheckMeta} style={{ margin: "0.35rem 0 0" }}>
+                vs parent <strong>{redlineBaselineVersionLabel}</strong>.
               </p>
             ) : null}
-            <div className={styles.workspaceRedline} aria-label="Diff vs baseline">
-              {redline.map((p, i) => (
-                <span
-                  key={i}
-                  className={
-                    p.type === "add"
-                      ? styles.workspaceRedlineAdd
-                      : p.type === "remove"
-                        ? styles.workspaceRedlineRemove
-                        : styles.workspaceRedlineSame
-                  }
-                >
-                  {p.value}
-                </span>
-              ))}
+            <div
+              className={styles.workspaceDecisionSegment}
+              role="tablist"
+              aria-label="Diff layout"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={redlineLayout === "inline"}
+                className={styles.workspaceDecisionSegmentBtn}
+                data-active={redlineLayout === "inline" ? "true" : "false"}
+                onClick={() => setRedlineLayout("inline")}
+              >
+                Inline
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={redlineLayout === "split"}
+                className={styles.workspaceDecisionSegmentBtn}
+                data-active={redlineLayout === "split" ? "true" : "false"}
+                onClick={() => setRedlineLayout("split")}
+              >
+                Split
+              </button>
             </div>
+            {redlineLayout === "inline" ? (
+              <div className={styles.workspaceRedline} aria-label="Inline diff vs baseline">
+                {redline.map((p, i) => (
+                  <span
+                    key={i}
+                    className={
+                      p.type === "add"
+                        ? styles.workspaceRedlineAdd
+                        : p.type === "remove"
+                          ? styles.workspaceRedlineRemove
+                          : styles.workspaceRedlineSame
+                    }
+                  >
+                    {p.value}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div
+                className={styles.workspaceRedlineSplit}
+                aria-label="Side-by-side diff vs baseline"
+              >
+                <div className={styles.workspaceRedlineSplitHeader}>
+                  <div className={styles.workspaceRedlineSplitHeaderCell}>
+                    Baseline
+                    {redlineBaselineVersionLabel ? (
+                      <>
+                        {" "}
+                        <span className={styles.workspaceRedlineHeaderSub}>
+                          ({redlineBaselineVersionLabel})
+                        </span>
+                      </>
+                    ) : redlineBaselineMode === "none" ? (
+                      <span className={styles.workspaceRedlineHeaderSub}> (empty)</span>
+                    ) : null}
+                  </div>
+                  <div className={styles.workspaceRedlineSplitHeaderCell}>
+                    Current{" "}
+                    <span className={styles.workspaceRedlineHeaderSub}>({versionLabel})</span>
+                  </div>
+                </div>
+                <div className={styles.workspaceRedlineSplitBody}>
+                  {redlineSplitRows.length === 0 ? (
+                    <p className={styles.workspaceCheckMeta} style={{ padding: "1rem", margin: 0 }}>
+                      No changes vs baseline.
+                    </p>
+                  ) : (
+                    redlineSplitRows.map((row, i) => (
+                      <div key={i} className={styles.workspaceRedlineSplitRow}>
+                        <pre
+                          className={`${styles.workspaceRedlineSplitCell} ${
+                            row.leftTone === "remove"
+                              ? styles.workspaceRedlineSplitCellRemove
+                              : row.leftTone === "same"
+                                ? styles.workspaceRedlineSplitCellSame
+                                : styles.workspaceRedlineSplitCellNeutral
+                          }`}
+                        >
+                          {row.left}
+                        </pre>
+                        <pre
+                          className={`${styles.workspaceRedlineSplitCell} ${
+                            row.rightTone === "add"
+                              ? styles.workspaceRedlineSplitCellAdd
+                              : row.rightTone === "same"
+                                ? styles.workspaceRedlineSplitCellSame
+                                : styles.workspaceRedlineSplitCellNeutral
+                          }`}
+                        >
+                          {row.right}
+                        </pre>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 
         {tab === "checklist" ? (
           <div>
-            <p className={styles.workflowPanelHint}>
-              <strong>Blocking discipline:</strong> required rows need an evidence note
-              (≥12 chars) when checked. Open items block{" "}
-              <strong>Submit for approval</strong> and (with workflow){" "}
-              <strong>Final approval</strong> on the DAG.
-            </p>
             <div className={styles.workspaceQaCategoryRow} style={{ marginBottom: "0.75rem" }}>
               <span>
                 Progress: <strong>{approvalReadiness.requiredDone}</strong> /{" "}
@@ -641,25 +862,26 @@ export function VersionWorkspaceClient({
               </span>
               <span>
                 {requiredOpen.length === 0 ? (
-                  <span style={{ color: "#15803d" }}>Submit unblocked</span>
+                  <span style={{ color: "#15803d" }}>Clear</span>
                 ) : (
                   <span style={{ color: "#b45309" }}>
-                    {requiredOpen.length} blocker(s)
+                    {requiredOpen.length} open
                   </span>
                 )}
               </span>
             </div>
             {!canChecklist ? (
               <p className={styles.workflowViewerBanner}>
-                Switch to <strong>reviewer</strong> or <strong>admin</strong> on{" "}
+                Read-only —{" "}
                 <a href="/compliance" className={styles.inlineLink}>
                   Compliance
-                </a>{" "}
-                to change checklist items.
+                </a>
               </p>
             ) : null}
             {checklist.length === 0 ? (
-              <p className={styles.empty}>No checklist rows for this version (run db migrate + seed).</p>
+              <p className={styles.empty}>
+                No checklist rows yet{canEditChecklistStructure ? " — add one below" : ""}.
+              </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                 {checklistByCategory.map(([category, items]) => (
@@ -677,13 +899,16 @@ export function VersionWorkspaceClient({
                             onChange={(e) => void onToggleCheck(c.id, e.target.checked)}
                             aria-label={c.label}
                           />
-                          <div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
                             <div>
                               <strong>{c.label}</strong>{" "}
                               <span className={styles.policyCode}>({c.code})</span>{" "}
                               <span className={styles.workspaceCheckMeta}>
                                 {c.required ? "required" : "optional"}
                               </span>
+                              {c.code.startsWith(USER_CHECKLIST_CODE_PREFIX) ? (
+                                <span className={styles.workspaceCheckMeta}> · yours</span>
+                              ) : null}
                             </div>
                             {c.completedAt ? (
                               <div className={styles.workspaceCheckMeta}>
@@ -692,7 +917,21 @@ export function VersionWorkspaceClient({
                               </div>
                             ) : c.required ? (
                               <div className={styles.workspaceCheckMeta}>
-                                Evidence ≥12 chars applied when you check this box.
+                                Evidence ≥12 chars on check.
+                              </div>
+                            ) : null}
+                            {canEditChecklistStructure &&
+                            c.code.startsWith(USER_CHECKLIST_CODE_PREFIX) &&
+                            !c.completedAt ? (
+                              <div style={{ marginTop: "0.5rem" }}>
+                                <button
+                                  type="button"
+                                  className={styles.workflowAutoStopBtn}
+                                  disabled={pending}
+                                  onClick={() => onRemoveUserChecklist(c.id)}
+                                >
+                                  Remove row
+                                </button>
                               </div>
                             ) : null}
                           </div>
@@ -703,60 +942,125 @@ export function VersionWorkspaceClient({
                 ))}
               </div>
             )}
+            {canEditChecklistStructure ? (
+              <div className={styles.workspaceAddChecklistCard}>
+                <header className={styles.workspaceAddChecklistHeader}>
+                  <h3 className={styles.workspaceAddChecklistTitle}>New checklist row</h3>
+                  <p className={styles.workspaceAddChecklistHint}>
+                    You can remove user-added rows until they are checked off.
+                  </p>
+                </header>
+                <div className={styles.workspaceAddChecklistBody}>
+                  <div className={styles.workspaceAddChecklistField}>
+                    <label
+                      className={styles.workspaceAddChecklistLabel}
+                      htmlFor="workspace-new-checklist-label"
+                    >
+                      What to verify
+                    </label>
+                    <textarea
+                      id="workspace-new-checklist-label"
+                      className={styles.workspaceAddChecklistTextarea}
+                      value={newCheckLabel}
+                      onChange={(e) => setNewCheckLabel(e.target.value)}
+                      placeholder="e.g. Legal reviewed cross-references to the summary prospectus."
+                      rows={3}
+                    />
+                  </div>
+                  <div className={styles.workspaceAddChecklistControls}>
+                    <div className={styles.workspaceAddChecklistField}>
+                      <label
+                        className={styles.workspaceAddChecklistLabel}
+                        htmlFor="workspace-new-checklist-category"
+                      >
+                        Category
+                      </label>
+                      <select
+                        id="workspace-new-checklist-category"
+                        className={styles.workspaceAddChecklistSelect}
+                        value={newCheckCategory}
+                        onChange={(e) => setNewCheckCategory(e.target.value)}
+                      >
+                        <option value="qa_content">QA / content</option>
+                        <option value="ixbrl">iXBRL</option>
+                        <option value="edgar_pack">EDGAR pack</option>
+                        <option value="sec_control">SEC control</option>
+                      </select>
+                    </div>
+                    <label className={styles.workspaceAddChecklistToggle}>
+                      <input
+                        type="checkbox"
+                        checked={newCheckRequired}
+                        onChange={(e) => setNewCheckRequired(e.target.checked)}
+                      />
+                      <span>Required — blocks submit until complete</span>
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.workspaceAddChecklistBtn}
+                    disabled={pending || newCheckLabel.trim().length < 3}
+                    onClick={() => onAddChecklistRow()}
+                  >
+                    Add to checklist
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
         {tab === "ixbrl" ? (
           <div>
-            <p className={styles.workflowPanelHint}>
-              Facts for each version live in <code>ixbrl_fact_drafts</code> (one row
-              per draft tag). The sample seed only attaches demo rows to{" "}
-              <strong>Corgi Innovation ETF → Risk Factors → 2025.04.1</strong>; every
-              other version starts with an empty list until you insert rows (e.g. via
-              SQL or a future editor).
+            <p className={styles.workspaceCheckMeta} style={{ margin: "0 0 0.75rem" }}>
+              Demo drafts in DB. Sample data:{" "}
+              <Link
+                href={`/documents/${SEED_IXBRL_DOC_ID}/versions/${SEED_IXBRL_VERSION_ID}`}
+                className={styles.inlineLink}
+              >
+                Corgi / 2025.04.1
+              </Link>
+              .
             </p>
             {facts.length === 0 ? (
-              <p className={styles.empty}>
-                No draft facts for this version — nothing to validate here yet.
-              </p>
+              <p className={styles.empty}>No facts on this version.</p>
             ) : (
               <>
-                <p className={styles.workflowPanelHint} style={{ marginTop: "0.5rem" }}>
-                  <strong>Demo validator</strong> (button below) checks QName shape
-                  (prefix:Local with uppercase local start), non-empty values, and{" "}
-                  <code>c-…</code> context ref pattern — not full taxonomy or
-                  calculation linkbase rules.
+                <p className={styles.workspaceCheckMeta} style={{ margin: "0 0 0.5rem" }}>
+                  Validator: QName shape, value, <code>c-…</code> context — not full taxonomy.
                 </p>
-                <table className={styles.workspaceIxbrlTable}>
-                  <thead>
-                    <tr>
-                      <th>Concept (QName)</th>
-                      <th>Value</th>
-                      <th>Context</th>
-                      <th>Demo validation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {facts.map((f) => (
-                      <tr key={f.id}>
-                        <td>
-                          <code>{f.conceptQname}</code>
-                        </td>
-                        <td>{f.factValue}</td>
-                        <td>{f.contextRef}</td>
-                        <td>
-                          {f.validatedOk ? (
-                            <span style={{ color: "#15803d" }}>OK</span>
-                          ) : (
-                            <span style={{ color: "#b91c1c" }}>
-                              {f.validationMessage ?? "Not validated"}
-                            </span>
-                          )}
-                        </td>
+                <div className={styles.workspaceIxbrlTableWrap}>
+                  <table className={styles.workspaceIxbrlTable}>
+                    <thead>
+                      <tr>
+                        <th>Concept (QName)</th>
+                        <th>Value</th>
+                        <th>Context</th>
+                        <th>Demo validation</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {facts.map((f) => (
+                        <tr key={f.id}>
+                          <td>
+                            <code>{f.conceptQname}</code>
+                          </td>
+                          <td>{f.factValue}</td>
+                          <td>{f.contextRef}</td>
+                          <td>
+                            {f.validatedOk ? (
+                              <span style={{ color: "#15803d" }}>OK</span>
+                            ) : (
+                              <span style={{ color: "#b91c1c" }}>
+                                {f.validationMessage ?? "Not validated"}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 {canChecklist ? (
                   <button
                     type="button"
@@ -775,18 +1079,9 @@ export function VersionWorkspaceClient({
 
         {tab === "export" ? (
           <div>
-            <p className={styles.workflowPanelHint}>
-              Downloads a single HTML file with exhibit-style framing. Use only for
-              demos — production filings use EDGAR Filer Manual workflows and
-              certified software.
+            <p className={styles.workspaceCheckMeta} style={{ margin: "0 0 0.75rem" }}>
+              Demo HTML download only — not submission-grade.
             </p>
-            {status !== "approved" ? (
-              <p className={styles.workflowPanelHint}>
-                <strong>Controlled disclosure:</strong> this demo still allows export
-                while not approved; production would tie download entitlements to
-                sign-off state.
-              </p>
-            ) : null}
             <div className={styles.workspaceExportActions}>
               {canExport ? (
                 <a
@@ -794,11 +1089,14 @@ export function VersionWorkspaceClient({
                   href={`/api/edgar/${versionId}`}
                   download
                 >
-                  Download demo EDGAR-style HTML
+                  Download HTML
                 </a>
               ) : (
-                <span className={styles.workflowPanelHint}>
-                  Export requires <strong>reviewer</strong> or <strong>admin</strong>.
+                <span className={styles.workflowViewerBanner}>
+                  Reviewer/admin —{" "}
+                  <a href="/compliance" className={styles.inlineLink}>
+                    Compliance
+                  </a>
                 </span>
               )}
             </div>

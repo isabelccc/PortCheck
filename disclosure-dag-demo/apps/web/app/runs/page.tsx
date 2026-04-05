@@ -38,14 +38,12 @@ export default async function RunsIndexPage() {
   return (
     <div className={styles.shell}>
       <main className={styles.inner}>
-        <Link href="/funds" className={styles.back}>
-          ← Funds
+        <Link href="/compliance" className={styles.back}>
+          ← Compliance
         </Link>
         <h1 className={styles.display}>Workflow runs</h1>
         <p className={styles.subtitle}>
-          Open a run to see the DAG, step status, and transitions (writes{" "}
-          <code>step_executions</code> + append-only <code>audit_events</code>
-          ).
+          Each row opens the DAG, progress, and step controls for that run.
         </p>
         {rows.length === 0 ? (
           <div className={styles.empty}>

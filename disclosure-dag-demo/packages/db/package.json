@@ -10,6 +10,7 @@
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
         "db:seed": "tsx src/seed.ts",
+        "db:backfill-audit-chain": "tsx src/backfill-audit-chain-cli.ts",
         "db:studio": "drizzle-kit studio"
     },
     "dependencies": {

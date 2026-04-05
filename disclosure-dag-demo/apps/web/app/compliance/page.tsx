@@ -22,11 +22,37 @@ export default async function CompliancePage() {
         </Link>
         <h1 className={styles.title}>Compliance &amp; controls</h1>
         <p className={styles.subtitle}>
-          Demo policies codify how this sample app models{" "}
-          <strong>change control</strong>, <strong>evidence</strong>, and{" "}
-          <strong>review queues</strong>. Role cookie simulates permissioned
-          workflows (not production IAM).
+          Demo role + policies. The main screens are the three tiles below.
         </p>
+
+        <section className={styles.complianceOpsSection} aria-labelledby="ops-heading">
+          <h2 id="ops-heading" className={styles.complianceOpsHeading}>
+            Operational views
+          </h2>
+          <nav className={styles.complianceOpsGrid} aria-label="Operational views">
+            <Link href="/runs" className={styles.complianceOpsCard}>
+              <p className={styles.complianceOpsCardKicker}>DAG + steps</p>
+              <p className={styles.complianceOpsCardTitle}>Workflow runs</p>
+              <p className={styles.complianceOpsCardDesc}>
+                React Flow DAG, step execution, final approval vs the linked version.
+              </p>
+            </Link>
+            <Link href="/reviews" className={styles.complianceOpsCard}>
+              <p className={styles.complianceOpsCardKicker}>In review</p>
+              <p className={styles.complianceOpsCardTitle}>Review queue</p>
+              <p className={styles.complianceOpsCardDesc}>
+                Drafts and in-review versions with QA blockers and decisions.
+              </p>
+            </Link>
+            <Link href="/audit" className={styles.complianceOpsCard}>
+              <p className={styles.complianceOpsCardKicker}>Append-only</p>
+              <p className={styles.complianceOpsCardTitle}>Audit trail</p>
+              <p className={styles.complianceOpsCardDesc}>
+                Search events, diffs, and evidence — nothing is deleted.
+              </p>
+            </Link>
+          </nav>
+        </section>
 
         <form action={submitDemoRoleForm} className={styles.complianceRoleForm}>
           <label htmlFor="demo-role" style={{ fontWeight: 600 }}>
@@ -78,16 +104,6 @@ export default async function CompliancePage() {
             ))}
           </ul>
         )}
-
-        <p className={styles.workflowFooter}>
-          <Link href="/reviews" className={styles.inlineLink}>
-            Review queue →
-          </Link>
-          <span className={styles.subtitleSep}> · </span>
-          <Link href="/audit" className={styles.inlineLink}>
-            Audit trail →
-          </Link>
-        </p>
       </main>
     </div>
   );

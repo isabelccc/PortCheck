@@ -64,6 +64,27 @@
       "when": 1775400000000,
       "tag": "0008_compliance_filing_qa",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775403600000,
+      "tag": "0009_redline_anchor",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1775407200000,
+      "tag": "0010_redline_anchor_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1775410800000,
+      "tag": "0011_audit_integrity_chain",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  auditEvents,
+  appendAuditEvent,
   db,
   documentVersions,
   stepExecutions,
@@ -11,7 +11,7 @@ import {
   workflowNodes,
   workflowRuns,
 } from "@repo/db";
-import { and, count, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { validateWorkflowTransition } from "../../lib/workflow-rules-engine";
 import type { WorkflowEdgeLite, WorkflowStepLite } from "../../lib/workflow-rules-engine";
 import { canMutateWorkflow } from "../../lib/demo-role-constants";
@@ -41,7 +41,7 @@ async function commitStepStatusChange(
     })
     .where(eq(stepExecutions.id, row.id));
 
-  await db.insert(auditEvents).values({
+  await appendAuditEvent({
     actorId: actor,
     action: "step_status_changed",
     entityType: "step_execution",
@@ -227,134 +227,4 @@ export async function updateStepStatus(
   revalidatePath("/runs");
   revalidatePath("/audit");
   return { ok: true };
-}
-
-export type AutoWaveResult =
-  | {
-      ok: true;
-      started: number;
-      finished: number;
-      allCompleted: boolean;
-      idle: boolean;
-    }
-  | { ok: false; error: string };
-
-/**
- * One “tick” of demo automation: all eligible pending → running, then all eligible running → completed.
- * Respects the same DAG rules as manual transitions. Call repeatedly (with UI delay) until idle or allCompleted.
- */
-export async function advanceWorkflowAutoWave(
-  runId: string,
-  actorId: string,
-): Promise<AutoWaveResult> {
-  const role = await getDemoRole();
-  if (!canMutateWorkflow(role)) {
-    return { ok: false, error: "Auto-run is disabled for the viewer role." };
-  }
-
-  const actor = actorId.trim() || "auto@demo.local";
-  const ctx = await loadRunWorkflowContext(runId);
-  if (!ctx) {
-    return { ok: false, error: "Run not found" };
-  }
-
-  const { edges } = ctx;
-  let stepsLite = toStepLite(ctx.stepRows);
-
-  let started = 0;
-  for (const row of ctx.stepRows) {
-    if (row.status !== "pending") {
-      continue;
-    }
-    const v = validateWorkflowTransition({
-      edges,
-      steps: stepsLite,
-      nodeId: row.nodeId,
-      nextStatus: "running",
-    });
-    if (!v.ok) {
-      continue;
-    }
-    await commitStepStatusChange(
-      runId,
-      row,
-      "running",
-      actor,
-      "demo auto-advance",
-      "demo_auto_wave",
-    );
-    started++;
-    stepsLite = stepsLite.map((s) =>
-      s.nodeId === row.nodeId ? { ...s, status: "running" } : s,
-    );
-  }
-
-  const afterStart = await db
-    .select()
-    .from(stepExecutions)
-    .where(eq(stepExecutions.runId, runId));
-  let lite2 = toStepLite(afterStart);
-
-  const nodeIds = [...new Set(afterStart.map((r) => r.nodeId))];
-  const wfNodes =
-    nodeIds.length === 0
-      ? []
-      : await db
-          .select({ id: workflowNodes.id, nodeType: workflowNodes.nodeType })
-          .from(workflowNodes)
-          .where(inArray(workflowNodes.id, nodeIds));
-  const nodeTypeById = new Map(wfNodes.map((n) => [n.id, n.nodeType]));
-
-  let finished = 0;
-  for (const row of afterStart) {
-    if (row.status !== "running") {
-      continue;
-    }
-    const v = validateWorkflowTransition({
-      edges,
-      steps: lite2,
-      nodeId: row.nodeId,
-      nextStatus: "completed",
-    });
-    if (!v.ok) {
-      continue;
-    }
-    const gate = await assertFinalApprovalQaGates(runId, row.nodeId, "completed");
-    if (!gate.ok) {
-      continue;
-    }
-    const nt = nodeTypeById.get(row.nodeId);
-    const completeComment =
-      nt === "approval"
-        ? "Automated demo completion — production requires human attestation."
-        : "demo auto-advance";
-    await commitStepStatusChange(
-      runId,
-      row,
-      "completed",
-      actor,
-      completeComment,
-      "demo_auto_wave",
-    );
-    finished++;
-    lite2 = lite2.map((s) =>
-      s.nodeId === row.nodeId ? { ...s, status: "completed" } : s,
-    );
-  }
-
-  const finalRows = await db
-    .select({ status: stepExecutions.status })
-    .from(stepExecutions)
-    .where(eq(stepExecutions.runId, runId));
-
-  const allCompleted =
-    finalRows.length > 0 &&
-    finalRows.every((r) => r.status === "completed");
-  const idle = started === 0 && finished === 0;
-
-  revalidatePath(`/runs/${runId}`);
-  revalidatePath("/runs");
-  revalidatePath("/audit");
-
-  return { ok: true, started, finished, allCompleted, idle };
 }

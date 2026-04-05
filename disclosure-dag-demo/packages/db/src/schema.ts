@@ -56,6 +56,11 @@ export const documentVersions = pgTable("document_versions", {
   parentVersionId: uuid("parent_version_id").references(
     (): AnyPgColumn => documentVersions.id,
   ),
+  /**
+   * Snapshot of `content` before the most recent body save. Used for redlines when this row is
+   * the only (or first) version on the document so there is no parent / prior sibling baseline.
+   */
+  redlineAnchorContent: text("redline_anchor_content"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
