@@ -12,6 +12,8 @@ loadEnv({ path: path.join(__dirname, ".env.local") });
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@repo/db"],
+  /** Match `turbopack.root` so Next 16 does not warn on Vercel. */
+  outputFileTracingRoot: monorepoRoot,
   experimental: {
     serverActions: {
       /** Large filing bodies can exceed the default Server Actions body limit. */

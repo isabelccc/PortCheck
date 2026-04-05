@@ -18,12 +18,36 @@ export function getDatabaseUrl(): string {
   return url;
 }
 
-const client = postgres(getDatabaseUrl(), { max: 10 });
-export const db = drizzle(client, { schema });
+let pgClient: ReturnType<typeof postgres> | undefined;
+let dbInstance: AppDb | undefined;
+
+function ensureDb(): AppDb {
+  if (dbInstance) return dbInstance;
+  pgClient = postgres(getDatabaseUrl(), { max: 10 });
+  dbInstance = drizzle(pgClient, { schema });
+  return dbInstance;
+}
+
+/**
+ * Lazy connection: avoids throwing during module load when `DATABASE_URL` is not yet
+ * in the environment (e.g. tooling). First query still requires `DATABASE_URL`.
+ */
+export const db: AppDb = new Proxy({} as AppDb, {
+  get(_target, prop, receiver) {
+    const real = ensureDb();
+    const value = Reflect.get(real, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(real);
+    }
+    return value;
+  },
+});
 
 /** Call from CLI scripts (e.g. seed) so Node can exit; Next.js keeps the process alive anyway. */
 export async function closeDb(): Promise<void> {
-  await client.end({ timeout: 5 });
+  await pgClient?.end({ timeout: 5 });
+  pgClient = undefined;
+  dbInstance = undefined;
 }
 
 export * from "./compliance";
