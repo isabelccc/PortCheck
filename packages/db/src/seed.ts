@@ -69,8 +69,10 @@ const IXB_V2_1 = "f1180001-0000-4000-8000-000000000001";
 const IXB_V2_2 = "f1180002-0000-4000-8000-000000000002";
 const IXB_V2_3 = "f1180003-0000-4000-8000-000000000003";
 
+/** Small demo footprint: 2 named funds + 3 synthetic = 5 funds; 4 hero docs + 6 bulk = 10 documents. */
+const SEED_COMPANY_COUNT = 5;
 const BULK_FUND_START = 3;
-const BULK_FUND_END = 100;
+const BULK_FUND_END = 5;
 
 function companyUuid(i: number): string {
   return `cccc${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
@@ -80,12 +82,15 @@ function bulkFundUuid(i: number): string {
   return `dddd${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
 }
 
-function bulkDocUuid(i: number): string {
-  return `eeee${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
+/** Two documents per synthetic fund (fundIndex 3..5); keys avoid collision with hero UUIDs. */
+function bulkDocUuid(fundIndex: number, docSlot: 0 | 1): string {
+  const key = fundIndex * 2 + docSlot + 100;
+  return `eeee${key.toString(16).padStart(4, "0")}-0000-4000-8000-${key.toString(16).padStart(12, "0")}`;
 }
 
-function bulkVersionUuid(i: number): string {
-  return `b2ee${i.toString(16).padStart(4, "0")}-0000-4000-8000-${i.toString(16).padStart(12, "0")}`;
+function bulkVersionUuid(fundIndex: number, docSlot: 0 | 1): string {
+  const key = fundIndex * 2 + docSlot + 100;
+  return `b2ee${key.toString(16).padStart(4, "0")}-0000-4000-8000-${key.toString(16).padStart(12, "0")}`;
 }
 
 const ADJECTIVES = [
@@ -190,7 +195,7 @@ async function main() {
   } = mod;
 
   try {
-  const companyRows = Array.from({ length: 100 }, (_, j) => {
+  const companyRows = Array.from({ length: SEED_COMPANY_COUNT }, (_, j) => {
     const i = j + 1;
     const premium = PREMIUM_COMPANIES[j];
     if (premium) {
@@ -213,7 +218,8 @@ async function main() {
     .values(companyRows)
     .onConflictDoNothing({ target: companies.id });
 
-  for (let j = 0; j < PREMIUM_COMPANIES.length; j++) {
+  const premiumUpdates = Math.min(PREMIUM_COMPANIES.length, SEED_COMPANY_COUNT);
+  for (let j = 0; j < premiumUpdates; j++) {
     const p = PREMIUM_COMPANIES[j]!;
     const i = j + 1;
     await db
@@ -267,23 +273,26 @@ async function main() {
   const bulkDocuments = [];
   const bulkVersions = [];
   for (let i = BULK_FUND_START; i <= BULK_FUND_END; i++) {
-    const kind = DOC_KINDS[i % DOC_KINDS.length]!;
-    const slug = `${kind.slug}-fund-${i}`;
-    bulkDocuments.push({
-      id: bulkDocUuid(i),
-      fundId: bulkFundUuid(i),
-      slug,
-      title: `${kind.title} (Fund ${i})`,
-    });
-    const statuses = ["draft", "in_review", "approved"] as const;
-    bulkVersions.push({
-      id: bulkVersionUuid(i),
-      documentId: bulkDocUuid(i),
-      version: `2025.${String((i % 12) + 1).padStart(2, "0")}.1`,
-      status: statuses[i % 3],
-      parentVersionId: null,
-      content: bulkDocumentDraft(kind.title, i),
-    });
+    for (const docSlot of [0, 1] as const) {
+      const kind = DOC_KINDS[(i + docSlot) % DOC_KINDS.length]!;
+      const slug = `${kind.slug}-fund-${i}-s${docSlot}`;
+      bulkDocuments.push({
+        id: bulkDocUuid(i, docSlot),
+        fundId: bulkFundUuid(i),
+        slug,
+        title: `${kind.title} (Fund ${i}${docSlot === 1 ? " · B" : ""})`,
+      });
+      const statuses = ["draft", "in_review", "approved"] as const;
+      const statusIdx = (i + docSlot) % 3;
+      bulkVersions.push({
+        id: bulkVersionUuid(i, docSlot),
+        documentId: bulkDocUuid(i, docSlot),
+        version: `2025.${String(((i + docSlot) % 12) + 1).padStart(2, "0")}.1`,
+        status: statuses[statusIdx],
+        parentVersionId: null,
+        content: bulkDocumentDraft(kind.title, i),
+      });
+    }
   }
 
   await db.insert(documents).values(bulkDocuments).onConflictDoNothing({
@@ -377,11 +386,13 @@ async function main() {
   }
 
   for (let i = BULK_FUND_START; i <= BULK_FUND_END; i++) {
-    const kind = DOC_KINDS[i % DOC_KINDS.length]!;
-    await db
-      .update(documentVersions)
-      .set({ content: bulkDocumentDraft(kind.title, i) })
-      .where(eq(documentVersions.id, bulkVersionUuid(i)));
+    for (const docSlot of [0, 1] as const) {
+      const kind = DOC_KINDS[(i + docSlot) % DOC_KINDS.length]!;
+      await db
+        .update(documentVersions)
+        .set({ content: bulkDocumentDraft(kind.title, i) })
+        .where(eq(documentVersions.id, bulkVersionUuid(i, docSlot)));
+    }
   }
 
   await db

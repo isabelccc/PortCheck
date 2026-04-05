@@ -1,7 +1,13 @@
 import Link from "next/link";
 import styles from "./page.module.css";
 
-export default function Home() {
+/** Read `DATABASE_URL` at request time (Vercel runtime), not only at build/SSG. */
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  /** Home does not query Postgres; other routes do — failures there are usually DB/schema/connect. */
+  const missingDatabaseUrl = !process.env.DATABASE_URL?.trim();
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
@@ -16,6 +22,23 @@ export default function Home() {
           portfolio slice for issuer-style disclosure ops—not production filing
           software.
         </p>
+
+        {missingDatabaseUrl ? (
+          <p className={styles.deployWarn} role="status">
+            <strong>Deployment:</strong> <code>DATABASE_URL</code> is not set for this
+            environment. This page can still load, but <strong>Funds, Documents, Runs,
+            etc. need PostgreSQL</strong>. In Vercel → Project → Environment Variables,
+            add <code>DATABASE_URL</code> (Production / Preview), then redeploy. Run{" "}
+            <code>packages/db</code> migrations and seed against that same database.
+          </p>
+        ) : process.env.VERCEL ? (
+          <p className={styles.deployHint} role="note">
+            <code>DATABASE_URL</code> is set for this request. If Funds/Documents still fail, the
+            database may need <strong>migrations + seed</strong> (
+            <code>packages/db</code>), or check <strong>Vercel → Deployment → Runtime Logs</strong>{" "}
+            for the real error (SSL, auth, missing tables).
+          </p>
+        ) : null}
 
         <div className={styles.ctas}>
           <Link className={styles.primary} href="/funds">

@@ -22,17 +22,29 @@ export default function AppError({
     msg.includes("ENOTFOUND") ||
     msg.includes("password authentication failed") ||
     msg.includes("does not exist");
+  /** Production hides the real message; the UI only gets this generic text. */
+  const isNextProductionOpaque =
+    msg.includes("An error occurred in the Server Components render") ||
+    msg.includes("omitted in production builds");
+  const showDbTroubleshooting = isDbConfig || isNextProductionOpaque;
 
   return (
     <div className={styles.shell}>
       <main className={styles.inner}>
         <h1 className={styles.display}>Something went wrong</h1>
         <p className={styles.subtitle}>
-          {isDbConfig
-            ? "This page talks to PostgreSQL. The deployment is probably missing a working database connection or schema."
+          {showDbTroubleshooting
+            ? "This page talks to PostgreSQL. The deployment may be missing env, migrations, or a working DB connection."
             : "A server error occurred."}
         </p>
-        {isDbConfig ? (
+        {error.digest ? (
+          <p className={styles.subtitle} style={{ marginTop: "0.5rem", fontSize: "0.8125rem" }}>
+            Error digest:{" "}
+            <code style={{ fontSize: "0.85em" }}>{error.digest}</code> — match this in Vercel →
+            Deployment → <strong>Runtime Logs</strong>.
+          </p>
+        ) : null}
+        {showDbTroubleshooting ? (
           <div
             className={styles.empty}
             style={{ textAlign: "left", maxWidth: "40rem" }}
