@@ -5,7 +5,7 @@ import { config as loadEnv } from "dotenv";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const monorepoRoot = path.resolve(__dirname, "../..");
 
-// Root `.env` lives at `disclosure-dag-demo/.env` (Next only auto-loads `apps/web/.env*`).
+// Root `.env` lives at monorepo root (Next only auto-loads `apps/web/.env*`).
 loadEnv({ path: path.join(monorepoRoot, ".env") });
 loadEnv({ path: path.join(__dirname, ".env.local") });
 

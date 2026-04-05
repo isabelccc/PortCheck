@@ -43,9 +43,9 @@ Role model is a **cookie** (`viewer` / `reviewer` / `admin`) for the demo, but *
 
 ## Setup
 
-From **this monorepo root** (`disclosure-dag-demo/`, where `package.json` lives):
+From **this monorepo root** (where root `package.json` lives):
 
-1. **Environment** — Set `DATABASE_URL` in `disclosure-dag-demo/.env` (or your shell):
+1. **Environment** — Set `DATABASE_URL` in `.env` at the repo root (or your shell):
 
    ```sh
    DATABASE_URL=postgres://user:password@localhost:5432/your_db
@@ -70,8 +70,6 @@ From **this monorepo root** (`disclosure-dag-demo/`, where `package.json` lives)
    Or: `npx turbo dev --filter=web`
 
 4. Open **http://localhost:3000**.
-
-If your Git clone has an extra parent folder (e.g. `port-check/disclosure-dag-demo`), `cd` into **`disclosure-dag-demo`** first; see the **parent [readme.md](../readme.md)** for that layout.
 
 ## Useful commands
 

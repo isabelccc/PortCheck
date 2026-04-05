@@ -103,7 +103,7 @@ export default function Home() {
         <span className={styles.footerSep}>·</span>
         <Link href="/audit">Audit</Link>
         <span className={styles.footerSep}>·</span>
-        <span className={styles.footerMeta}>disclosure-dag-demo</span>
+        <span className={styles.footerMeta}>PortCheck</span>
       </footer>
     </div>
   );
