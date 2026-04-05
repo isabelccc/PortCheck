@@ -253,8 +253,8 @@
 
 a.primary {
   background: var(--pilot-accent);
-  color: var(--pilot-text);
-  box-shadow: 3px 3px 0 var(--pilot-text);
+  color: var(--pilot-on-accent);
+  box-shadow: 3px 3px 0 var(--pilot-accent-deep);
 }
 
 a.secondary {
@@ -412,7 +412,7 @@ a.secondary {
 @media (hover: hover) and (pointer: fine) {
   a.primary:hover {
     transform: translate(1px, 1px);
-    box-shadow: 2px 2px 0 var(--pilot-text);
+    box-shadow: 2px 2px 0 var(--pilot-accent-deep);
   }
 
   a.secondary:hover {
@@ -473,8 +473,8 @@ a.secondary {
   font-weight: 700;
   font-size: 0.9375rem;
   line-height: 1;
-  color: var(--pilot-text);
-  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 25%, transparent);
+  color: var(--pilot-on-accent);
+  box-shadow: 2px 2px 0 var(--pilot-accent-deep);
 }
 
 .flowStepBody {
@@ -548,6 +548,7 @@ a.secondary {
 
 .flowStepHighlight .flowStepNum {
   background: var(--pilot-surface);
+  color: var(--pilot-text);
 }
 
 .flowConnector {
@@ -586,8 +587,8 @@ a.secondary {
   border-radius: 4px;
   border: 1px solid var(--pilot-text);
   background: var(--pilot-accent);
-  color: var(--pilot-text);
-  box-shadow: 2px 2px 0 color-mix(in srgb, var(--pilot-text) 18%, transparent);
+  color: var(--pilot-on-accent);
+  box-shadow: 2px 2px 0 var(--pilot-accent-deep);
 }
 
 @media (max-width: 600px) {

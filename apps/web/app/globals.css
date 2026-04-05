@@ -19,14 +19,18 @@
   /* Pilot-style light shell (reference layout) */
   --pilot-bg: #f7f7f7;
   --pilot-surface: #ededed;
-  /* Bright chartreuse — tabs, loading, in-progress system check bar */
-  --pilot-accent: #e2ff6f;
+  /* Primary orange — CTAs, tabs, loading, in-progress system check bar */
+  --pilot-accent: #ff6e1c;
+  /* Deeper orange — 3D edge / gradient stops (pairs with --pilot-accent) */
+  --pilot-accent-deep: #d45614;
+  /* Text on solid accent fills */
+  --pilot-on-accent: #ffffff;
   /* Calm success green — system check bar & chrome after 5s completion */
   --pilot-success-green: #62c46e;
   --pilot-text: #000000;
   --pilot-muted: #707070;
   --pilot-line: #d1d1d1;
-  /* Neo-brutalist frames (black outline + hard offset shadow, lime header) */
+  /* Neo-brutalist frames (black outline + hard offset shadow) */
   --pilot-brutal-shadow: 4px 4px 0 #000000;
   --pilot-brutal-radius: 7px;
   /* Align fixed chrome (load bar) with `layout` header + `shell` min-height calc */

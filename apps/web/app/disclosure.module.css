@@ -145,10 +145,10 @@
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--pilot-text);
+  color: var(--pilot-on-accent);
   background: var(--pilot-accent);
   border: 1px solid var(--pilot-text);
-  box-shadow: 2px 2px 0 var(--pilot-text);
+  box-shadow: 2px 2px 0 var(--pilot-accent-deep);
   transition:
     transform 0.12s ease,
     box-shadow 0.12s ease;
@@ -156,7 +156,7 @@
 
 .topBarCta:hover {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--pilot-text);
+  box-shadow: 1px 1px 0 var(--pilot-accent-deep);
 }
 
 /* Subtle column grid (reference layout) */
@@ -329,7 +329,7 @@
   font-size: 1.125rem;
   font-weight: 700;
   line-height: 1;
-  color: var(--pilot-text);
+  color: var(--pilot-on-accent);
   background: var(--pilot-accent);
   border: 1px solid var(--pilot-text);
   border-radius: 2px;
@@ -507,7 +507,7 @@
     90deg,
     color-mix(in srgb, var(--pilot-accent) 78%, #ffffff) 0%,
     var(--pilot-accent) 45%,
-    color-mix(in srgb, var(--pilot-accent) 92%, #b8cf4a) 100%
+    color-mix(in srgb, var(--pilot-accent) 72%, var(--pilot-accent-deep)) 100%
   );
   border-radius: 0 2px 2px 0;
   box-shadow:
@@ -541,7 +541,7 @@
     90deg,
     color-mix(in srgb, var(--pilot-accent) 70%, #fff) 0%,
     var(--pilot-accent) 50%,
-    color-mix(in srgb, var(--pilot-accent) 88%, #b8cf4a) 100%
+    color-mix(in srgb, var(--pilot-accent) 72%, var(--pilot-accent-deep)) 100%
   );
   border-right: 2px solid var(--pilot-text);
   animation: workspaceRouteLoadSweep 1.35s cubic-bezier(0.33, 1, 0.68, 1) infinite
@@ -635,7 +635,7 @@
 .workspaceSysCheckStatusOk {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: var(--pilot-text);
+  color: var(--pilot-on-accent);
   letter-spacing: -0.02em;
   padding: 0.12rem 0.45rem;
   border-radius: 6px;
@@ -711,7 +711,7 @@
     90deg,
     color-mix(in srgb, var(--pilot-accent) 75%, #ffffff) 0%,
     var(--pilot-accent) 40%,
-    color-mix(in srgb, var(--pilot-accent) 88%, #c4d85c) 100%
+    color-mix(in srgb, var(--pilot-accent) 72%, var(--pilot-accent-deep)) 100%
   );
   border-right: 1px solid color-mix(in srgb, var(--pilot-text) 18%, transparent);
   /* Width: rAF; fill color crossfades when card gains “complete” */
@@ -741,7 +741,7 @@
   }
 }
 
-/* After completion: switch bar + accents from chartreuse → success green (#62c46e) */
+/* After completion: switch bar + accents from accent orange → success green (#62c46e) */
 .workspaceSysCheckCardComplete .workspaceSysCheckBarFill {
   background: linear-gradient(
     90deg,
@@ -955,6 +955,7 @@
 .workspaceDecisionSegmentBtn[data-active="true"] {
   background: var(--pilot-accent);
   border-color: var(--pilot-text);
+  color: var(--pilot-on-accent);
 }
 
 .workspaceDecisionSegmentBtn:focus-visible {
@@ -1117,9 +1118,9 @@
   border: 1px solid var(--pilot-text);
   border-radius: var(--pilot-brutal-radius);
   background: var(--pilot-accent);
-  color: var(--pilot-text);
+  color: var(--pilot-on-accent);
   cursor: pointer;
-  box-shadow: 3px 3px 0 color-mix(in srgb, var(--pilot-text) 18%, transparent);
+  box-shadow: 3px 3px 0 var(--pilot-accent-deep);
   transition:
     transform 0.12s ease,
     box-shadow 0.12s ease,
@@ -1128,7 +1129,7 @@
 
 .workspaceAddChecklistBtn:hover:not(:disabled) {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 color-mix(in srgb, var(--pilot-text) 22%, transparent);
+  box-shadow: 4px 4px 0 var(--pilot-accent-deep);
 }
 
 .workspaceAddChecklistBtn:disabled {
@@ -1387,7 +1388,8 @@
 .paginationLinkCurrent {
   background: var(--pilot-accent);
   border-color: var(--pilot-text);
-  box-shadow: 2px 2px 0 var(--pilot-text);
+  color: var(--pilot-on-accent);
+  box-shadow: 2px 2px 0 var(--pilot-accent-deep);
   pointer-events: none;
 }
 
@@ -1655,7 +1657,7 @@
 .workflowCheckIcon[data-status="running"] {
   border-color: var(--pilot-text);
   background: var(--pilot-accent);
-  box-shadow: 0 0 0 2px rgba(226, 255, 68, 0.35);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pilot-accent) 42%, transparent);
 }
 
 .workflowCheckIcon[data-status="running"]::after {
@@ -1817,7 +1819,7 @@
 
 .workflowAutoRunBtn {
   background: var(--pilot-accent);
-  color: var(--pilot-text);
+  color: var(--pilot-on-accent);
 }
 
 .workflowAutoRunBtn:hover:not(:disabled) {
@@ -1918,6 +1920,7 @@
 .workspaceTab[data-active="true"] {
   border-color: var(--pilot-text);
   background: var(--pilot-accent);
+  color: var(--pilot-on-accent);
 }
 
 .workspaceTabPanel {
@@ -2432,9 +2435,9 @@
   border-radius: 4px;
   border: 1px solid var(--pilot-text);
   background: var(--pilot-accent);
-  color: var(--pilot-text);
+  color: var(--pilot-on-accent);
   cursor: pointer;
-  box-shadow: 2px 2px 0 var(--pilot-text);
+  box-shadow: 2px 2px 0 var(--pilot-accent-deep);
 }
 
 .auditClear {
