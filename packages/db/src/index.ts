@@ -1,8 +1,6 @@
-export type { AppDb } from "./db-client";
-export { closeDb, db, getDatabaseUrl } from "./db-client";
-export * from "./compliance";
+export type { AppDb } from "./client/db-client";
+export { closeDb, db, getDatabaseUrl } from "./client/db-client";
 export * from "./schema";
-export * from "./workflow";
 export {
   appendAuditEvent,
   backfillAuditIntegrityChain,
@@ -10,4 +8,4 @@ export {
   verifyAuditIntegrityChain,
   type AppendAuditInput,
   type AuditChainVerifyResult,
-} from "./audit-append";
+} from "./audit/audit-append";

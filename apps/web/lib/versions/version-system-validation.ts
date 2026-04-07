@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import {
   evaluateSystemValidation,
   type SystemValidationResult,
-} from "./system-validation";
+} from "../validation/system-validation";
 
 /** Runs automatic checks on the persisted version body + document slug. */
 export async function loadSystemValidationForVersion(

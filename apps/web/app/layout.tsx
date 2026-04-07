@@ -34,6 +34,9 @@ export default function RootLayout({
             <a href="/" className={styles.topBarLink}>
               Home
             </a>
+            <a href="/funds" className={styles.topBarLink}>
+              Funds
+            </a>
             <a href="/documents" className={styles.topBarLink}>
               Documents
             </a>
@@ -45,8 +48,8 @@ export default function RootLayout({
             </a>
           </nav>
           <div className={styles.topBarRight}>
-            <a href="/documents" className={styles.topBarCta}>
-              Browse documents
+            <a href="/funds" className={styles.topBarCta}>
+              Browse funds
             </a>
           </div>
         </header>

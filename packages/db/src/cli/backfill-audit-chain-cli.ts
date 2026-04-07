@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.join(__dirname, "../../../.env") });
 loadEnv({ path: path.join(__dirname, "../../.env") });
 
-const { backfillAuditIntegrityChain, closeDb } = await import("./index.js");
+const { backfillAuditIntegrityChain, closeDb } = await import("../index.js");
 
 await backfillAuditIntegrityChain();
 console.log("Audit integrity chain backfill complete.");

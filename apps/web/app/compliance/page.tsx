@@ -2,7 +2,7 @@ import Link from "next/link";
 import { compliancePolicies, db } from "@repo/db";
 import { asc } from "drizzle-orm";
 import { submitDemoRoleForm } from "../actions/compliance-workspace";
-import { getDemoRole } from "../../lib/demo-role-server";
+import { getDemoRole } from "../../lib/roles/demo-role-server";
 import styles from "../disclosure.module.css";
 
 export const dynamic = "force-dynamic";

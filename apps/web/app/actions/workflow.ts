@@ -12,11 +12,11 @@ import {
   workflowRuns,
 } from "@repo/db";
 import { and, count, eq, isNull } from "drizzle-orm";
-import { validateWorkflowTransition } from "../../lib/workflow-rules-engine";
-import type { WorkflowEdgeLite, WorkflowStepLite } from "../../lib/workflow-rules-engine";
-import { canMutateWorkflow } from "../../lib/demo-role-constants";
-import { getDemoRole } from "../../lib/demo-role-server";
-import { loadSystemValidationForVersion } from "../../lib/version-system-validation";
+import { validateWorkflowTransition } from "../../lib/workflow/workflow-rules-engine";
+import type { WorkflowEdgeLite, WorkflowStepLite } from "../../lib/workflow/workflow-rules-engine";
+import { canMutateWorkflow } from "../../lib/roles/demo-role-constants";
+import { getDemoRole } from "../../lib/roles/demo-role-server";
+import { loadSystemValidationForVersion } from "../../lib/versions/version-system-validation";
 
 const ALLOWED = new Set(["pending", "running", "completed", "blocked", "skipped"]);
 

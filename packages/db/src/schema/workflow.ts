@@ -8,7 +8,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { documentVersions } from "./schema";
+import { documentVersions } from "./core";
 
 export const workflowTemplates = pgTable("workflow_templates", {
   id: uuid("id").primaryKey().defaultRandom(),

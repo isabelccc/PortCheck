@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { eq, sql } from "drizzle-orm";
-import { PREMIUM_COMPANIES } from "./premiumCompanies.js";
+import { PREMIUM_COMPANIES } from "./data/premium-companies.js";
 import {
   bulkDocumentDraft,
   corgiAiDraft,
@@ -16,7 +16,7 @@ import {
   corgiRiskFactorsDraftV1,
   corgiRiskFactorsDraftV2,
   tanchRiskDraft,
-} from "./seedDocumentDrafts.js";
+} from "./data/document-drafts.js";
 
 const FUND_CORGX = "f0000001-0000-4000-8000-000000000001";
 const FUND_TANCH = "f0000002-0000-4000-8000-000000000002";
@@ -171,11 +171,11 @@ function bulkFundDisplayName(i: number): string {
 
 async function main() {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  // seed.ts lives in packages/db/src — monorepo root is three levels up
+  // seed/main.ts lives in packages/db/src/seed — monorepo root is three levels up
   loadEnv({ path: path.join(__dirname, "../../../.env") });
   loadEnv({ path: path.join(__dirname, "../../.env") });
 
-  const mod = await import("./index.js");
+  const mod = await import("../index.js");
   const {
     db,
     appendAuditEvent,

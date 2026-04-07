@@ -1,8 +1,8 @@
 import { db, documentVersions, documents, ixbrlFactDrafts } from "@repo/db";
 import { asc, eq } from "drizzle-orm";
-import { canExportFiling } from "../../../../lib/demo-role-constants";
-import { getDemoRole } from "../../../../lib/demo-role-server";
-import { buildInlineIxbrlHtml } from "../../../../lib/inline-ixbrl-html";
+import { canExportFiling } from "../../../../lib/roles/demo-role-constants";
+import { getDemoRole } from "../../../../lib/roles/demo-role-server";
+import { buildInlineIxbrlHtml } from "../../../../lib/filing/inline-ixbrl-html";
 
 export async function GET(
   _request: Request,

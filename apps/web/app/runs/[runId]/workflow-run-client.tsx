@@ -16,8 +16,8 @@ import { useRouter } from "next/navigation";
 import { updateStepStatus } from "../../actions/workflow";
 import {
   validateWorkflowTransition,
-} from "../../../lib/workflow-rules-engine";
-import type { DemoRole } from "../../../lib/demo-role-constants";
+} from "../../../lib/workflow/workflow-rules-engine";
+import type { DemoRole } from "../../../lib/roles/demo-role-constants";
 import {
   WorkflowStepNode,
   type WorkflowStepData,

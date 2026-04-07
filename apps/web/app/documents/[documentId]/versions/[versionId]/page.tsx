@@ -72,9 +72,9 @@ async function resolveRedlineBaseline(
 
   return { baselineContent: "", mode: "none", baselineVersionLabel: null };
 }
-import { getDemoRole } from "../../../../../lib/demo-role-server";
-import { getVersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
-import { loadSystemValidationForVersion } from "../../../../../lib/version-system-validation";
+import { getDemoRole } from "../../../../../lib/roles/demo-role-server";
+import { getVersionApprovalReadiness } from "../../../../../lib/versions/version-approval-readiness";
+import { loadSystemValidationForVersion } from "../../../../../lib/versions/version-system-validation";
 import styles from "../../../../disclosure.module.css";
 import { VersionWorkspaceClient } from "./version-workspace-client";
 

@@ -31,7 +31,7 @@ Monorepo: **Next.js 16** (App Router, Server Actions) + **PostgreSQL** + **Drizz
 | Control | Where it’s enforced |
 |--------|----------------------|
 | **Required checklist** before **Submit for review** | `submitVersionForApproval` in `compliance-workspace.ts` — rejects if any open required rows. |
-| **System validation (automatic)** after checklist — min length, structure, slug-specific fee % sanity, optional `PORTCHECK_DEMO_BPS` | `evaluateSystemValidation` in `lib/system-validation.ts`; enforced in `submitVersionForApproval`, `approveDocumentVersion`, and workflow `assertFinalApprovalQaGates`. |
+| **System validation (automatic)** after checklist — min length, structure, slug-specific fee % sanity, optional `PORTCHECK_DEMO_BPS` | `evaluateSystemValidation` in `apps/web/lib/validation/system-validation.ts`; enforced in `submitVersionForApproval`, `approveDocumentVersion`, and workflow `assertFinalApprovalQaGates`. |
 | **Required checklist + `in_review` + system validation** before completing workflow **final approval** | `workflow.ts` — `assertFinalApprovalQaGates` on step transition to `completed`. |
 | **Evidence note length** when completing required checklist items | `toggleChecklistItem` — minimum length for audit trail. |
 | **Formal document approve** (`in_review` → `approved`) | `approveDocumentVersion` — **admin** role; requires closed required QA + completed workflow final (if a run exists); attestation text; **`version_approved`** audit row. |
@@ -123,7 +123,7 @@ Key app paths:
 - `apps/web/app/actions/workflow.ts` — Step updates, auto waves
 - `apps/web/lib/workflow-rules-engine.ts` — DAG transition rules
 - `apps/web/lib/demo-role-server.ts` / `demo-role-constants.ts` — Demo RBAC
-- `packages/db/src/schema.ts`, `workflow.ts`, `compliance.ts` — Tables
+- `packages/db/src/schema/` — Drizzle tables (`core`, `workflow`, `compliance`)
 
 ## Architecture boundaries
 

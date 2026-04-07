@@ -21,16 +21,16 @@ import {
   canRejectDocumentVersion,
   canReopenRejectedVersion,
   type DemoRole,
-} from "../../../../../lib/demo-role-constants";
-import type { VersionApprovalReadiness } from "../../../../../lib/version-approval-readiness";
+} from "../../../../../lib/roles/demo-role-constants";
+import type { VersionApprovalReadiness } from "../../../../../lib/versions/version-approval-readiness";
 import {
   evaluateSystemValidation,
   type SystemValidationResult,
-} from "../../../../../lib/system-validation";
+} from "../../../../../lib/validation/system-validation";
 import {
   expandRedlinePartsToSideBySideRows,
   type RedlinePart,
-} from "../../../../../lib/redline-split-rows";
+} from "../../../../../lib/content/redline-split-rows";
 import styles from "../../../../disclosure.module.css";
 import { WorkspaceEntryLoadBar } from "./workspace-entry-load-bar";
 

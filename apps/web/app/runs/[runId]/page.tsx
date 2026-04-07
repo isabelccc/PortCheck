@@ -12,9 +12,9 @@ import {
   stepExecutions,
 } from "@repo/db";
 import { asc, eq } from "drizzle-orm";
-import { countOpenRequiredChecklist } from "../../../lib/version-approval-readiness";
+import { countOpenRequiredChecklist } from "../../../lib/versions/version-approval-readiness";
 import type { Edge, Node } from "@xyflow/react";
-import { getDemoRole } from "../../../lib/demo-role-server";
+import { getDemoRole } from "../../../lib/roles/demo-role-server";
 import { WorkflowRunClient } from "./workflow-run-client";
 import type { WorkflowStepData } from "../../components/workflow-step-node";
 import styles from "../../disclosure.module.css";

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   predecessorsFromEdges,
   validateWorkflowTransition,
-} from "../lib/workflow/workflow-rules-engine";
+} from "./workflow-rules-engine";
 
 describe("predecessorsFromEdges", () => {
   it("maps targets to source ids", () => {

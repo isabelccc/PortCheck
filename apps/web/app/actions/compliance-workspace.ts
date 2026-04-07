@@ -17,14 +17,14 @@ import {
   canMutateChecklist,
   canRejectDocumentVersion,
   canReopenRejectedVersion,
-} from "../../lib/demo-role-constants";
-import { getDemoRole } from "../../lib/demo-role-server";
+} from "../../lib/roles/demo-role-constants";
+import { getDemoRole } from "../../lib/roles/demo-role-server";
 import {
   insertWorkflowRunWithSteps,
   purgeWorkflowRunsForVersion,
-} from "../../lib/workflow-run-for-version";
-import { getVersionApprovalReadiness } from "../../lib/version-approval-readiness";
-import { loadSystemValidationForVersion } from "../../lib/version-system-validation";
+} from "../../lib/workflow/workflow-run-for-version";
+import { getVersionApprovalReadiness } from "../../lib/versions/version-approval-readiness";
+import { loadSystemValidationForVersion } from "../../lib/versions/version-system-validation";
 
 const ROLE_COOKIE = "demo_role";
 

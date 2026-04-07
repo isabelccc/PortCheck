@@ -9,8 +9,8 @@
     "scripts": {
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
-        "db:seed": "tsx src/seed.ts",
-        "db:backfill-audit-chain": "tsx src/backfill-audit-chain-cli.ts",
+        "db:seed": "tsx src/seed/main.ts",
+        "db:backfill-audit-chain": "tsx src/cli/backfill-audit-chain-cli.ts",
         "db:studio": "drizzle-kit studio",
         "test": "vitest run",
         "test:watch": "vitest"

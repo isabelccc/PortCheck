@@ -107,8 +107,8 @@ export default async function Home() {
                   Edit body, redline vs parent, checklist, demo iXBRL validation, EDGAR-style
                   HTML export stub.
                 </p>
-                <Link href="/documents" className={styles.flowStepLink}>
-                  Browse documents →
+                <Link href="/funds" className={styles.flowStepLink}>
+                  Browse funds →
                 </Link>
               </div>
             </li>

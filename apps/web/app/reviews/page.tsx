@@ -8,12 +8,13 @@ import {
   workflowRuns,
   workflowTemplates,
 } from "@repo/db";
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ilike, isNull, or, sql } from "drizzle-orm";
 import {
   DocumentPagination,
   parseListPagination,
 } from "../components/document-pagination";
-import { getDemoRole } from "../../lib/demo-role-server";
+import { getDemoRole } from "../../lib/roles/demo-role-server";
+import { listSearchIlikePattern } from "../../lib/search/list-search";
 import styles from "../disclosure.module.css";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
 const REVIEW_QUEUE_PAGE_SIZE = 8;
 
 type PageProps = {
-  searchParams: Promise<{ page?: string; perPage?: string }>;
+  searchParams: Promise<{ page?: string; perPage?: string; q?: string }>;
 };
 
 const reviewQueueWhere = or(
@@ -30,9 +31,39 @@ const reviewQueueWhere = or(
   eq(documentVersions.status, "rejected"),
 );
 
+function reviewQueueSearchWhere(pat: string) {
+  return and(
+    reviewQueueWhere,
+    or(
+      ilike(documents.title, pat),
+      ilike(documents.slug, pat),
+      ilike(documentVersions.version, pat),
+      ilike(documentVersions.status, pat),
+      ilike(funds.name, pat),
+      ilike(funds.ticker, pat),
+    ),
+  )!;
+}
+
+function workflowRunsSearchWhere(pat: string) {
+  return or(
+    ilike(workflowTemplates.name, pat),
+    ilike(workflowRuns.status, pat),
+    ilike(documents.title, pat),
+    ilike(documents.slug, pat),
+    ilike(documentVersions.version, pat),
+    ilike(funds.name, pat),
+    ilike(funds.ticker, pat),
+    sql`${workflowRuns.id}::text ILIKE ${pat}`,
+  )!;
+}
+
 export default async function ReviewsPage({ searchParams }: PageProps) {
   const role = await getDemoRole();
   const sp = await searchParams;
+  const q = sp.q?.trim() ? sp.q.trim() : "";
+  const pat = listSearchIlikePattern(q);
+  const queueWhere = pat ? reviewQueueSearchWhere(pat) : reviewQueueWhere;
   const { page: requestedPage, perPage } = parseListPagination(
     sp,
     REVIEW_QUEUE_PAGE_SIZE,
@@ -43,7 +74,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     .from(documentVersions)
     .innerJoin(documents, eq(documents.id, documentVersions.documentId))
     .innerJoin(funds, eq(funds.id, documents.fundId))
-    .where(reviewQueueWhere);
+    .where(queueWhere);
 
   const total = countRow?.n ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -59,7 +90,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     .from(documentVersions)
     .innerJoin(documents, eq(documents.id, documentVersions.documentId))
     .innerJoin(funds, eq(funds.id, documents.fundId))
-    .where(reviewQueueWhere)
+    .where(queueWhere)
     .orderBy(desc(documentVersions.createdAt))
     .limit(perPage)
     .offset(offset);
@@ -88,7 +119,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     }
   }
 
-  const runRows = await db
+  const runsBase = db
     .select({
       run: workflowRuns,
       template: workflowTemplates,
@@ -109,6 +140,13 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     .leftJoin(funds, eq(documents.fundId, funds.id))
     .orderBy(desc(workflowRuns.createdAt))
     .limit(50);
+  const runRows = await (pat
+    ? runsBase.where(workflowRunsSearchWhere(pat))
+    : runsBase);
+
+  const extraQuery: Record<string, string> = {};
+  if (q) extraQuery.q = q;
+  const hasSearch = q.length > 0;
 
   return (
     <div className={styles.shell}>
@@ -129,18 +167,63 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
           Review queue
         </h2>
 
+        <form
+          className={styles.auditFilters}
+          method="get"
+          action="/reviews"
+          role="search"
+        >
+          <label className={styles.auditSearchWrap}>
+           
+            <input
+              name="q"
+              type="search"
+              defaultValue={q}
+              placeholder="Document, version, fund, template, run status, run ID…"
+              className={styles.auditInput}
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+          </label>
+          {perPage !== REVIEW_QUEUE_PAGE_SIZE ? (
+            <input type="hidden" name="perPage" value={perPage} />
+          ) : null}
+          <div className={styles.auditFilterActions}>
+            <button type="submit" className={styles.auditSubmit}>
+              Search
+            </button>
+            <Link href="/reviews" className={styles.auditClear}>
+              Clear
+            </Link>
+          </div>
+        </form>
+
         <DocumentPagination
           basePath="/reviews"
           page={page}
           perPage={perPage}
           total={total}
           defaultPerPage={REVIEW_QUEUE_PAGE_SIZE}
-          zeroStateMessage="No versions in queue."
+          extraQuery={Object.keys(extraQuery).length ? extraQuery : undefined}
+          zeroStateMessage={
+            hasSearch
+              ? "No queue rows match your search"
+              : "No versions in queue."
+          }
           navAriaLabel="Review queue pages"
         />
+      
 
         {versions.length === 0 ? (
-          <p className={styles.empty}>No versions in draft, in review, or rejected.</p>
+          <p className={styles.empty}>
+            {hasSearch ? (
+              <>
+                No versions match &ldquo;{q}&rdquo; in draft, in review, or rejected.
+              </>
+            ) : (
+              <>No versions in draft, in review, or rejected.</>
+            )}
+          </p>
         ) : (
           <div
             className={`${styles.innerTableAlign} ${styles.reviewQueueTableWrap}`}
@@ -193,7 +276,13 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
         </h2>
 
         {runRows.length === 0 ? (
-          <p className={styles.empty}>No workflow runs yet.</p>
+          <p className={styles.empty}>
+            {hasSearch ? (
+              <>No workflow runs match &ldquo;{q}&rdquo;.</>
+            ) : (
+              <>No workflow runs yet.</>
+            )}
+          </p>
         ) : (
           <div className={styles.workflowRunsStack} role="list">
             {runRows.map(({ run, template, version, document, fund }) => {

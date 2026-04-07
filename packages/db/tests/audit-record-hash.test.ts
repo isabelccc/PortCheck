@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeAuditRecordHash } from "../src/audit-append";
+import { computeAuditRecordHash } from "../src/audit/audit-append";
 
 const baseFields = {
   actorId: "actor-1",

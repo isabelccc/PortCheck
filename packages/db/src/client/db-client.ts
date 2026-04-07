@@ -1,11 +1,12 @@
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import * as compliance from "./compliance";
-import * as schemaCore from "./schema";
-import * as workflow from "./workflow";
+import * as compliance from "../schema/compliance";
+import * as file from "../schema/file";
+import * as schemaCore from "../schema/core";
+import * as workflow from "../schema/workflow";
 
-const schema = { ...schemaCore, ...workflow, ...compliance };
+const schema = { ...schemaCore, ...workflow, ...compliance, ...file };
 
 export type AppDb = PostgresJsDatabase<typeof schema>;
 

@@ -8,7 +8,7 @@ export {
   corgiFeesDraft,
   corgiRiskFactorsDraftV1,
   corgiRiskFactorsDraftV2,
-} from "./corgiInnovationEtfDrafts.js";
+} from "./corgi-innovation-etf-drafts.js";
 
 function section(title: string, body: string): string {
   return `${title}\n\n${body.trim()}`;

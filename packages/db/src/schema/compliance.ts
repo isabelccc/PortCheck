@@ -8,7 +8,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { documentVersions } from "./schema";
+import { documentVersions } from "./core";
 
 /** Codified policy / control statements for the compliance hub (demo). */
 export const compliancePolicies = pgTable("compliance_policies", {

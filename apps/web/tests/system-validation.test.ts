@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateSystemValidation,
   SYSTEM_VALIDATION_MIN_CHARS,
-} from "../lib/system-validation";
+} from "../lib/validation/system-validation";
 
 const filler = "word ".repeat(30);
 

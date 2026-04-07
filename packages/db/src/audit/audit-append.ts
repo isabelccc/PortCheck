@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { asc, desc, eq, sql } from "drizzle-orm";
-import { db } from "./db-client";
-import { auditEvents } from "./workflow";
+import { db } from "../client/db-client";
+import { auditEvents } from "../schema/workflow";
 
 /** Advisory lock id — serializes hash-chain appends across connections. */
 const AUDIT_CHAIN_LOCK_KEY = 5849271;

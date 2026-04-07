@@ -11,7 +11,7 @@ import {
   auditEntityLabel,
   auditRunIdFromRow,
   getAuditBodyDiffPayload,
-} from "../../lib/audit-display";
+} from "../../lib/audit/audit-display";
 import { AuditBodyTextDiff } from "./audit-body-text-diff";
 import styles from "../disclosure.module.css";
 
